@@ -11,6 +11,8 @@ I dati comprendono:
 I dati sono disponibili il tempo reale sul sito e sono salvati su un servizio cloud (da specificare) per poter essere interpretati in seguito.
 L'idea è nata per i viaggi in fuoristrada, al fine di avere dati sul comportamento del veicolo e informazioni precise di posizione, al fine di ripetere il tragitto.
 
+Sulla board deve anche essere presente uno shield per una SIM card, ad esempio SIM5360 o SIM7600. Questo per avere la posizione GPS e per poter salvare i dati sul cloud. In alternativa si può usare un telefono con tethering. La SIM si può comprare da https://www.thingsmobile.com/business/sim-card/standard-sim-card-2ff-3ff-4ff.
+
 Risorse interessanti:
 - https://www.traccar.org Modern GPS Tracking Platform
 - https://freematics.com/store/index.php?route=product/category&path=24 Telematics Kits
