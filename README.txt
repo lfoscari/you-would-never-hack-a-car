@@ -1,4 +1,4 @@
-Offroad HAL
+Offroad pal
 -----------
 
 Utilizzando un lettore OBD II ed un GPS con un ESP8266 si vuole creare una dashboard di dati di viaggio consultabile tramite un sito web servito in locale.
@@ -15,3 +15,5 @@ Risorse interessanti:
 - https://www.traccar.org Modern GPS Tracking Platform
 - https://freematics.com/store/index.php?route=product/category&path=24 Telematics Kits
 - http://arduinodev.com/hardware/obd-kit/ Esempio di OBD II Freematics con Arduino
+
+(Offroad HAL?)
