@@ -14,6 +14,7 @@ L'idea è nata per i viaggi in fuoristrada, al fine di avere dati sul comportame
 Risorse interessanti:
 - https://www.traccar.org Modern GPS Tracking Platform
 - https://freematics.com/store/index.php?route=product/category&path=24 Telematics Kits
+	In particolare https://freematics.com/store/index.php?route=product/product&path=24&product_id=87 in cui è specificato in modo come accoppiarlo con https://freematics.com/store/index.php?route=product/product&path=20&product_id=55 per avere il GPS
 - http://arduinodev.com/hardware/obd-kit/ Esempio di OBD II Freematics con Arduino
 
 (Offroad HAL?)
