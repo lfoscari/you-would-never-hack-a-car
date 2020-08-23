@@ -7,62 +7,98 @@
       <div v-if="loading">
         <h1>Loading...</h1>
       </div>
-      <div v-else class="row">
-        <ContainerSlot width="3" is_small>
-          <Badge label="Gear" :value="engine.gear"></Badge>
-        </ContainerSlot>
+      <div v-else>
+        <div class="row justify-content-center">
+          <div v-if="typeof engine.gear != 'undefined'" class="col-sm-3 col-6 gy-3">
+            <badge name="current gear" unit="Gear" :value="engine.gear"></badge>
+          </div>
 
-        <ContainerSlot width="3" is_small>
-          <Badge label="Lights" :value="engine.lights ? 'on' : 'off'"></Badge>
-        </ContainerSlot>
+          <div v-if="typeof engine.lights != 'undefined'" class="col-sm-3 col-6 gy-3">
+            <badge name="lights status" unit="Lights" :value="engine.lights ? 'on' : 'off'"></badge>
+          </div>
 
-        <ContainerSlot width="3" is_small>
-          <Badge label="C°" :value="engine.air_temperature"></Badge>
-        </ContainerSlot>
+          <div v-if="typeof engine.air_temperature != 'undefined'" class="col-sm-3 col-6 gy-3">
+            <badge name="current temperature" unit="C°" :value="engine.air_temperature"></badge>
+          </div>
 
-        <ContainerSlot width="3" is_small>
-          <Badge label="Fuel" :value="engine.fuel"></Badge>
-        </ContainerSlot>
+          <div v-if="typeof engine.fuel != 'undefined'" class="col-sm-3 col-6 gy-3">
+            <badge name="current fuel level" unit="Fuel" :value="engine.fuel"></badge>
+          </div>
+        </div>
 
-        <ContainerSlot>
-          <ProgressBar label="Throttle (%)" :level="engine.throttle" :min="0" :max="100"></ProgressBar>
-        </ContainerSlot>
+        <div class="row justify-content-center">
+          <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
+            <progress-bar
+              name="Throttle position"
+              unit="%"
+              :level="engine.throttle"
+              :min="0"
+              :max="100"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot>
-          <ProgressBar
-            label="Oil temperature (C°)"
-            :level="engine.oil_temp"
-            :min="0"
-            :max="engine.critical_oil_temp"
-            is_graded="true"
-          ></ProgressBar>
-        </ContainerSlot>
+          <div
+            v-if="typeof engine.oil_temp != 'undefined' && typeof engine.critical_oil_temp != 'undefined'"
+            class="col-sm-4 col-12 gy-3"
+          >
+            <progress-bar
+              name="Oil temperature"
+              unit="C°"
+              :level="engine.oil_temp"
+              :min="0"
+              :max="engine.critical_oil_temp"
+              is_graded="true"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot>
-          <ProgressBar
-            label="RPM"
-            :level="engine.rpm"
-            :min="0"
-            :max="engine.max_rpm"
-            is_graded="true"
-          ></ProgressBar>
-        </ContainerSlot>
+          <div
+            v-if="typeof engine.rpm != 'undefined' && typeof engine.max_rpm != 'undefined'"
+            class="col-sm-4 col-12 gy-3"
+          >
+            <progress-bar
+              name="RPM"
+              unit
+              :level="engine.rpm"
+              :min="0"
+              :max="engine.max_rpm"
+              is_graded="true"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot>
-          <ProgressBar label="Throttle (%)" :level="engine.throttle" :min="0" :max="100"></ProgressBar>
-        </ContainerSlot>
+          <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
+            <progress-bar
+              name="Throttle position"
+              unit="%"
+              :level="engine.throttle"
+              :min="0"
+              :max="100"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot>
-          <ProgressBar label="Throttle (%)" :level="engine.throttle" :min="0" :max="100"></ProgressBar>
-        </ContainerSlot>
+          <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
+            <progress-bar
+              name="Throttle position"
+              unit="%"
+              :level="engine.throttle"
+              :min="0"
+              :max="100"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot>
-          <ProgressBar label="Throttle (%)" :level="engine.throttle" :min="0" :max="100"></ProgressBar>
-        </ContainerSlot>
+          <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
+            <progress-bar
+              name="Throttle position"
+              unit="%"
+              :level="engine.throttle"
+              :min="0"
+              :max="100"
+            ></progress-bar>
+          </div>
 
-        <ContainerSlot width="12">
-          <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit atque fugiat mollitia iste perferendis doloremque quos nihil ratione quasi aperiam provident a, labore inventore vel amet minus ea sapiente ab.</p>
-        </ContainerSlot>
+          <div class="col-12 gy-3">
+            <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit atque fugiat mollitia iste perferendis doloremque quos nihil ratione quasi aperiam provident a, labore inventore vel amet minus ea sapiente ab.</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -71,7 +107,7 @@
 <script>
 import axios from "axios";
 
-import ContainerSlot from "./components/ContainerSlot.vue";
+// import ContainerSlot from "./components/ContainerSlot.vue";
 import ProgressBar from "./components/ProgressBar.vue";
 import Badge from "./components/Badge.vue";
 
@@ -81,7 +117,7 @@ let REFRESH_TIMER = 1000;
 export default {
   name: "App",
   components: {
-    ContainerSlot,
+    // ContainerSlot,
     ProgressBar,
     Badge,
   },
@@ -122,6 +158,13 @@ body {
 
 .progress {
   background-color: var(--bs-gray);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--bs-gray),
+    var(--bs-gray) 5px,
+    var(--bs-gray-dark) 5px,
+    var(--bs-gray-dark) 10px
+  );
 }
 
 .vertical-center {
