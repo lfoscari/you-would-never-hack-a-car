@@ -4,12 +4,10 @@ Offroad pal
 Utilizzando un lettore OBD II ed un GPS con un ESP8266 si vuole creare una dashboard di dati di viaggio consultabile tramite un sito web servito in locale.
 I dati comprendono:
 - Posizione corrente
-- Vari dati sul veicolo (RPM, posizione acceleratore, inclinazione)
+- Vari dati sul veicolo (RPM, posizione acceleratore, quantità di carburante, etc)
 - Dati sulla posizione (coordinate ed elevazione)
-- Altro?
 
-I dati sono disponibili il tempo reale sul sito e sono salvati su un servizio cloud (da specificare) per poter essere interpretati in seguito.
-L'idea è nata per i viaggi in fuoristrada, al fine di avere dati sul comportamento del veicolo e informazioni precise di posizione, al fine di ripetere il tragitto.
+I dati sono disponibili il tempo reale sul sito e sono salvati su un servizio cloud. L'idea è nata intornoa ai tragitti in fuoristrada, per di avere dati sul comportamento del veicolo e informazioni precise di posizione, utili per ripetere eventualmente il percorso.
 
 Sulla board deve anche essere presente uno shield per una SIM card, ad esempio SIM5360 o SIM7600. Questo per avere la posizione GPS e per poter salvare i dati sul cloud. In alternativa si può usare un telefono con tethering. La SIM si può comprare da https://www.thingsmobile.com/business/sim-card/standard-sim-card-2ff-3ff-4ff.
 
