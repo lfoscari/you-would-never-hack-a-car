@@ -105,14 +105,14 @@
 </template>
 
 <script>
-import axios from "axios";
+// import axios from "axios";
 
 // import ContainerSlot from "./components/ContainerSlot.vue";
 import ProgressBar from "./components/ProgressBar.vue";
 import Badge from "./components/Badge.vue";
 
-let ENGINE_DATA = "./data.json";
-let REFRESH_TIMER = 1000;
+// let ENGINE_DATA = "./data.json";
+// let REFRESH_TIMER = 1000;
 
 export default {
   name: "App",
@@ -129,20 +129,53 @@ export default {
     };
   },
   mounted() {
-    setInterval(() => {
-      this.update();
-    }, REFRESH_TIMER);
+    if (window.EventSource) {
+      var source = new EventSource("/events");
+
+      source.addEventListener(
+        "open",
+        function () {
+          this.loading = false;
+          console.log("Events Connected");
+        },
+        false
+      );
+
+      source.addEventListener(
+        "error",
+        function (e) {
+          if (e.target.readyState != EventSource.OPEN) {
+            console.log("Events Disconnected");
+            this.error = true;
+          }
+        },
+        false
+      );
+
+      source.addEventListener(
+        "dataupdate",
+        function (e) {
+          console.log("new Data", e.data);
+          console.log(JSON.parse(e.data));
+          this.engine = JSON.parse(e.data);
+        },
+        false
+      );
+    }
+    // setInterval(() => {
+    //   this.update();
+    // }, REFRESH_TIMER);
   },
   methods: {
     update() {
-      axios
-        .get(ENGINE_DATA)
-        .then((response) => (this.engine = response.data))
-        .catch((error) => {
-          console.log(error);
-          this.error = true;
-        })
-        .finally(() => (this.loading = false));
+      // axios
+      //   .get(ENGINE_DATA)
+      //   .then((response) => (this.engine = response.data))
+      //   .catch((error) => {
+      //     console.log(error);
+      //     this.error = true;
+      //   })
+      //   .finally(() => (this.loading = false));
     },
   },
 };
