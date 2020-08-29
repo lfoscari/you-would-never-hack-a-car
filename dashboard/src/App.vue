@@ -3,97 +3,78 @@
     <div v-if="error">
       <h1>Error reading the data file</h1>
     </div>
-    <div v-else>
+    <div v-else class="col-12">
       <div class="row justify-content-center">
-        <div v-if="typeof engine.gear != 'undefined'" class="col-sm-3 col-6 gy-3">
-          <badge name="current gear" unit="Gear" :value="engine.gear"></badge>
+        <div v-if="typeof engine.vehicleSpeed != 'undefined'" class="col-sm-3 col-4 gx-2">
+          <badge name="Speed" unit="km/h" :value="engine.vehicleSpeed"></badge>
         </div>
 
-        <div v-if="typeof engine.lights != 'undefined'" class="col-sm-3 col-6 gy-3">
-          <badge name="lights status" unit="Lights" :value="engine.lights ? 'on' : 'off'"></badge>
+        <div v-if="typeof engine.engineRPM != 'undefined'" class="col-sm-3 col-4 gx-2">
+          <badge name="RPM" :value="engine.engineRPM"></badge>
+          <!-- .toString().padStart(4, '0') -->
         </div>
 
-        <div v-if="typeof engine.air_temperature != 'undefined'" class="col-sm-3 col-6 gy-3">
-          <badge name="current temperature" unit="C°" :value="engine.air_temperature"></badge>
-        </div>
-
-        <div v-if="typeof engine.fuel != 'undefined'" class="col-sm-3 col-6 gy-3">
-          <badge name="current fuel level" unit="Fuel" :value="engine.fuel"></badge>
+        <div v-if="typeof engine.fuelLevel != 'undefined'" class="col-sm-3 col-4 gx-2">
+          <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge>
         </div>
       </div>
 
       <div class="row justify-content-center">
-        <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
-          <progress-bar
-            name="Throttle position"
-            unit="%"
-            :level="engine.throttle"
-            :min="0"
-            :max="100"
-          ></progress-bar>
+        <div v-if="typeof engine.ambientAirTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
+          <badge name="Air temperature" unit="C°" :value="engine.ambientAirTemperature"></badge>
         </div>
 
-        <div
-          v-if="typeof engine.oil_temp != 'undefined' && typeof engine.critical_oil_temp != 'undefined'"
-          class="col-sm-4 col-12 gy-3"
-        >
+        <div v-if="typeof engine.intakeAirTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
+          <badge name="Air intake temperature" unit="C°" :value="engine.intakeAirTemperature"></badge>
+        </div>
+
+        <div v-if="typeof engine.oilTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
+          <badge name="Oil temperature" unit="C°" :value="engine.oilTemperature"></badge>
+        </div>
+
+        <div v-if="typeof engine.coolantTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
+          <badge name="Coolant temperature" unit="C°" :value="engine.coolantTemperature"></badge>
+        </div>
+      </div>
+
+      <div class="row justify-content-center">
+        <div v-if="typeof engine.engineLoad != 'undefined'" class="col-sm-4 col-12 gy-3">
           <progress-bar
-            name="Oil temperature"
-            unit="C°"
-            :level="engine.oil_temp"
+            name="Engine load"
+            unit="%"
+            :level="engine.engineLoad"
             :min="0"
-            :max="engine.critical_oil_temp"
+            :max="100"
             is_graded="true"
           ></progress-bar>
         </div>
 
         <div
-          v-if="typeof engine.rpm != 'undefined' && typeof engine.max_rpm != 'undefined'"
+          v-if="typeof engine.relativeThrottlePosition != 'undefined'"
           class="col-sm-4 col-12 gy-3"
         >
           <progress-bar
-            name="RPM"
-            unit
-            :level="engine.rpm"
-            :min="0"
-            :max="engine.max_rpm"
-            is_graded="true"
-          ></progress-bar>
-        </div>
-
-        <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
-          <progress-bar
             name="Throttle position"
             unit="%"
-            :level="engine.throttle"
+            :level="engine.relativeThrottlePosition"
             :min="0"
             :max="100"
           ></progress-bar>
         </div>
 
-        <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
+        <div v-if="typeof engine.actualTorque != 'undefined'" class="col-sm-4 col-12 gy-3">
           <progress-bar
-            name="Throttle position"
+            name="Actual torque"
             unit="%"
-            :level="engine.throttle"
+            :level="engine.actualTorque"
             :min="0"
             :max="100"
           ></progress-bar>
         </div>
 
-        <div v-if="typeof engine.throttle != 'undefined'" class="col-sm-4 col-12 gy-3">
-          <progress-bar
-            name="Throttle position"
-            unit="%"
-            :level="engine.throttle"
-            :min="0"
-            :max="100"
-          ></progress-bar>
-        </div>
-
-        <div class="col-12 gy-3">
+        <!-- <div class="col-12">
           <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit atque fugiat mollitia iste perferendis doloremque quos nihil ratione quasi aperiam provident a, labore inventore vel amet minus ea sapiente ab.</p>
-        </div>
+        </div>-->
       </div>
     </div>
   </div>
@@ -109,19 +90,27 @@ export default {
     ProgressBar,
     Badge,
   },
+
   data() {
     return {
       error: false,
       engine: {
-        gear: 0,
-        lights: false,
-        throttle: 0,
-        oil_temp: 0,
-        critical_oil_temp: 100,
-        rpm: 0,
-        max_rpm: 100,
-        air_temperature: 0,
-        fuel: 0,
+        // Badges (I)
+        vehicleSpeed: 95, // VEHICLE_SPEED
+        engineRPM: 500, // ENGINE_RPM
+        fuelLevel: 45, // FUEL_TANK_LEVEL_INPUT
+        // ?,
+
+        // Badges (II)
+        ambientAirTemperature: 32, // AMBIENT_AIR_TEMP
+        oilTemperature: 45, // ENGINE_OIL_TEMP
+        coolantTemperature: 45, // ENGINE_COOLANT_TEMP
+        intakeAirTemperature: 60, // INTAKE_AIR_TEMP
+
+        // Progress bars
+        engineLoad: 45, // ENGINE_LOAD
+        relativeThrottlePosition: 45, // RELATIVE_THROTTLE_POSITION
+        actualTorque: 60, // ACTUAL_ENGINE_TORQUE
       },
     };
   },

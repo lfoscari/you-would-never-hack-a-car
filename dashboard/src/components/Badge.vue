@@ -1,8 +1,8 @@
 <template>
   <div class="text-center">
     <span class="display-1 font-weight-bold">{{ value }}</span>
-    <br />
-    <p class="mb-0">{{ unit }}</p>
+    <small v-if="unit">{{ unit }}</small>
+    <p class="mb-0">{{ name }}</p>
   </div>
 </template>
 

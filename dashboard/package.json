@@ -1,5 +1,5 @@
 {
-  "name": "dashboard",
+  "name": "Offroad",
   "version": "0.1.0",
   "private": false,
   "scripts": {
@@ -9,7 +9,11 @@
   },
   "vue": {
     "filenameHashing": false,
-    "productionSourceMap": false
+    "productionSourceMap": false,
+    "css": {
+      "extract": false
+    },
+    "outputDir": "../components/final/data"
   },
   "dependencies": {
     "core-js": "^3.6.5",
