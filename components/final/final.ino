@@ -37,12 +37,11 @@ void setup()
   WiFi.softAP(ssid, password);
   // WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  Serial.println();
   Serial.print("IP address: ");
   Serial.println(WiFi.softAPIP());
 
   // Initialize SPIFFS
-  if(!SPIFFS.begin(true)){
+  if(!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
@@ -60,26 +59,8 @@ void setup()
   });
 
   server.begin();
-
-  // EventSource
-  events.onConnect([](AsyncEventSourceClient *client){
-    client->send("hello!", NULL, millis(), 1000);
-  });
-  
   server.addHandler(&events);
 }
-
-/* Test */
-
-char myData[] = "{\"gear\": 5,\"lights\": false,\"throttle\": 15,\"oil_temp\": 55,\"critical_oil_temp\": 100,\"rpm\": 0,\"max_rpm\": 5000,\"air_temperature\": 25,\"fuel\": 25}";
-
-// 9 -> Number of members in the JSON
-StaticJsonDocument<JSON_OBJECT_SIZE(9)> engine;
-
-int i = 0;
-
-// Read data into engine
-DeserializationError err = deserializeJson(engine, myData);
 
 void loop()
 {
@@ -90,4 +71,23 @@ void loop()
   
   events.send((const char *) jsonChar, "dataupdate", millis());
   delay(100);
+}
+
+void readOBDData() {
+  engineData["VEHICLE_SPEED"] = getValueFromOBD(VEHICLE_SPEED);
+  engineData["ENGINE_RPM"] = getValueFromOBD(ENGINE_RPM) / 4.0;
+  engineData["FUEL_TANK_LEVEL_INPUT"] = getValueFromOBD(FUEL_TANK_LEVEL_INPUT) / 2.55;
+
+  engineData["AMBIENT_AIR_TEMP"] = getValueFromOBD(AMBIENT_AIR_TEMP) - 40;
+  engineData["ENGINE_OIL_TEMP"] = getValueFromOBD(ENGINE_OIL_TEMP) - 40;
+  engineData["ENGINE_COOLANT_TEMP"] = getValueFromOBD(ENGINE_COOLANT_TEMP);
+  engineData["INTAKE_AIR_TEMP"] = getValueFromOBD(INTAKE_AIR_TEMP);
+
+  engineData["ENGINE_LOAD"] = getValueFromOBD(ENGINE_LOAD) / 2.55;
+  engineData["RELATIVE_THROTTLE_POSITION"] = getValueFromOBD(RELATIVE_THROTTLE_POSITION) / 2.55;
+  engineData["ACTUAL_ENGINE_TORQUE"] = getValueFromOBD(ACTUAL_ENGINE_TORQUE) - 125;
+
+   // DEBUG
+  serializeJsonPretty(engineData, DEBUG_PORT);
+  DEBUG_PORT.println();
 }
