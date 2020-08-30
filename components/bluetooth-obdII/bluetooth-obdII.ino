@@ -26,11 +26,11 @@ void setup()
     DEBUG_PORT.println("Couldn't connect to OBD scanner");
     while (1);
   }
-  
+
   Engine.begin(ELM_PORT);
 
   DEBUG_PORT.println("Connected to ELM327");
-  DEBUG_PORT.println("Ensure your serial monitor line ending is set to 'Carriage Return'"); */
+  DEBUG_PORT.println("Ensure your serial monitor line ending is set to 'Carriage Return'");
 }
 
 void loop()
@@ -50,11 +50,11 @@ void loop()
 
   serializeJsonPretty(engineData, DEBUG_PORT);
   DEBUG_PORT.println();
-  
+
   delay(100);
 
   // Wanna see me do it again?
-  
+
   /* float tempRPM = myELM327.rpm();
 
   if (myELM327.status == ELM_SUCCESS) {
@@ -67,8 +67,4 @@ void loop()
   } */
 }
 
-float getValueFromOBD(uint8_t pid) {
-  if (Engine.queryPID(SERVICE_01, pid))
-    return Engine.findResponse();
-  return ELM_GENERAL_ERROR;
-}
+

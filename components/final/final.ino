@@ -9,6 +9,8 @@
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
 
+#define ELM_PORT SerialBT
+
 // SSID & Password
 const char *ssid = "ESP32";         // Enter your SSID here
 const char *password = "123456789"; // Enter your Password here
@@ -29,51 +31,81 @@ BluetoothSerial SerialBT;
 ELM327 Engine;
 StaticJsonDocument<JSON_OBJECT_SIZE(10)> engineData;
 
+// Utility
+char engineDataString[300];
+
 void setup()
 {
   Serial.begin(115200);
 
-  // Create soft access point
+  /* Create soft access point */
+
   WiFi.softAP(ssid, password);
   // WiFi.softAPConfig(local_ip, gateway, subnet);
 
-  Serial.print("IP address: ");
+  Serial.print("Wifi access point created\nIP address: ");
   Serial.println(WiFi.softAPIP());
 
-  // Initialize SPIFFS
+
+  /* Initialize SPIFFS */
+
   if(!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
+    while (1);
   }
 
   // DEBUG: ls
   // for(File file = SPIFFS.open("/"); file; file = file.openNextFile())
   //  Serial.println(file.name());
 
-  server.serveStatic("/", SPIFFS, "/");
-  // ??? server.serveStatic("/", SPIFFS, "/js/");
+  Serial.println("File system mounted");
 
-  // Route for root / web page
+
+  /* Web server */
+
+  server.serveStatic("/", SPIFFS, "/");
+  // server.serveStatic("/", SPIFFS, "/js/");
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(SPIFFS, "/index.html");
   });
 
   server.begin();
   server.addHandler(&events);
+
+  Serial.println("Web server started");
+
+
+  /* ELM327 */
+
+  ELM_PORT.begin("ESP32", true);
+
+  if (!ELM_PORT.connect("OBDII")) {
+    DEBUG_PORT.println("Couldn't connect to OBD scanner");
+    while (1);
+  }
+
+  Engine.begin(ELM_PORT);
+
+  Serial.println("Connected to ELM327");
+
 }
 
 void loop()
 {
-  engine["rpm"] = i++;
+  readOBDData();
+  serializeJson(engineData, engineDataString);
 
-  char jsonChar[300];
-  serializeJson(engine, jsonChar);
-  
-  events.send((const char *) jsonChar, "dataupdate", millis());
+  events.send((const char *) engineDataString, "dataupdate", millis());
   delay(100);
 }
 
 void readOBDData() {
+  // TODO: Check for errors from the OBD-II
+  // Error 7 -> OBD unreachable (car's off)
+  // Error 5 -> OBD is no more reachable (car's been turned off)
+  // If any of those two happen, write a special value in the engineData and return
+
   engineData["VEHICLE_SPEED"] = getValueFromOBD(VEHICLE_SPEED);
   engineData["ENGINE_RPM"] = getValueFromOBD(ENGINE_RPM) / 4.0;
   engineData["FUEL_TANK_LEVEL_INPUT"] = getValueFromOBD(FUEL_TANK_LEVEL_INPUT) / 2.55;
@@ -88,6 +120,12 @@ void readOBDData() {
   engineData["ACTUAL_ENGINE_TORQUE"] = getValueFromOBD(ACTUAL_ENGINE_TORQUE) - 125;
 
    // DEBUG
-  serializeJsonPretty(engineData, DEBUG_PORT);
-  DEBUG_PORT.println();
+  serializeJsonPretty(engineData, Serial);
+  Serial.println();
+}
+
+float getValueFromOBD(uint8_t pid) {
+  if (Engine.queryPID(SERVICE_01, pid))
+    return Engine.findResponse();
+  return ELM_GENERAL_ERROR;
 }
