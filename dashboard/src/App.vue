@@ -5,40 +5,72 @@
     </div>
     <div v-else class="col-12">
       <div class="row justify-content-center">
-        <div v-if="typeof engine.vehicleSpeed != 'undefined'" class="col-sm-3 col-4 gx-2">
+        <div
+          v-if="typeof engine.vehicleSpeed != 'undefined'"
+          class="col-sm-3 col-4 gx-2">
           <badge name="Speed" unit="km/h" :value="engine.vehicleSpeed"></badge>
         </div>
 
-        <div v-if="typeof engine.engineRPM != 'undefined'" class="col-sm-3 col-4 gx-2">
+        <div
+          v-if="typeof engine.engineRPM != 'undefined'"
+          class="col-sm-3 col-4 gx-2">
           <badge name="RPM" :value="engine.engineRPM"></badge>
           <!-- .toString().padStart(4, '0') -->
         </div>
 
-        <div v-if="typeof engine.fuelLevel != 'undefined'" class="col-sm-3 col-4 gx-2">
+        <div
+          v-if="typeof engine.fuelLevel != 'undefined'"
+          class="col-sm-3 col-4 gx-2">
           <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge>
         </div>
       </div>
 
       <div class="row justify-content-center">
-        <div v-if="typeof engine.ambientAirTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
-          <badge name="Air temperature" unit="C°" :value="engine.ambientAirTemperature"></badge>
+        <div
+          v-if="typeof engine.ambientAirTemperature != 'undefined'"
+          class="col-sm-3 col-6 gx-2">
+          <badge
+            name="Air temperature"
+            unit="C°"
+            :value="engine.ambientAirTemperature"
+          ></badge>
         </div>
 
-        <div v-if="typeof engine.intakeAirTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
-          <badge name="Air intake temperature" unit="C°" :value="engine.intakeAirTemperature"></badge>
+        <div
+          v-if="typeof engine.intakeAirTemperature != 'undefined'"
+          class="col-sm-3 col-6 gx-2">
+          <badge
+            name="Air intake temperature"
+            unit="C°"
+            :value="engine.intakeAirTemperature"
+          ></badge>
         </div>
 
-        <div v-if="typeof engine.oilTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
-          <badge name="Oil temperature" unit="C°" :value="engine.oilTemperature"></badge>
+        <div
+          v-if="typeof engine.oilTemperature != 'undefined'"
+          class="col-sm-3 col-6 gx-2">
+          <badge
+            name="Oil temperature"
+            unit="C°"
+            :value="engine.oilTemperature"
+          ></badge>
         </div>
 
-        <div v-if="typeof engine.coolantTemperature != 'undefined'" class="col-sm-3 col-6 gx-2">
-          <badge name="Coolant temperature" unit="C°" :value="engine.coolantTemperature"></badge>
+        <div
+          v-if="typeof engine.coolantTemperature != 'undefined'"
+          class="col-sm-3 col-6 gx-2">
+          <badge
+            name="Coolant temperature"
+            unit="C°"
+            :value="engine.coolantTemperature"
+          ></badge>
         </div>
       </div>
 
       <div class="row justify-content-center">
-        <div v-if="typeof engine.engineLoad != 'undefined'" class="col-sm-4 col-12 gy-3">
+        <div
+          v-if="typeof engine.engineLoad != 'undefined'"
+          class="col-sm-4 col-12 gy-3">
           <progress-bar
             name="Engine load"
             unit="%"
@@ -51,8 +83,7 @@
 
         <div
           v-if="typeof engine.relativeThrottlePosition != 'undefined'"
-          class="col-sm-4 col-12 gy-3"
-        >
+          class="col-sm-4 col-12 gy-3">
           <progress-bar
             name="Throttle position"
             unit="%"
@@ -62,7 +93,9 @@
           ></progress-bar>
         </div>
 
-        <div v-if="typeof engine.actualTorque != 'undefined'" class="col-sm-4 col-12 gy-3">
+        <div
+          v-if="typeof engine.actualTorque != 'undefined'"
+          class="col-sm-4 col-12 gy-3">
           <progress-bar
             name="Actual torque"
             unit="%"
@@ -71,10 +104,6 @@
             :max="100"
           ></progress-bar>
         </div>
-
-        <!-- <div class="col-12">
-          <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Fugit atque fugiat mollitia iste perferendis doloremque quos nihil ratione quasi aperiam provident a, labore inventore vel amet minus ea sapiente ab.</p>
-        </div>-->
       </div>
     </div>
   </div>
@@ -99,7 +128,6 @@ export default {
         vehicleSpeed: 95, // VEHICLE_SPEED
         engineRPM: 500, // ENGINE_RPM
         fuelLevel: 45, // FUEL_TANK_LEVEL_INPUT
-        // ?,
 
         // Badges (II)
         ambientAirTemperature: 32, // AMBIENT_AIR_TEMP
