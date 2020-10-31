@@ -77,7 +77,6 @@
             :level="engine.engineLoad"
             :min="0"
             :max="100"
-            is_graded="true"
           ></progress-bar>
         </div>
 
@@ -90,6 +89,7 @@
             :level="engine.relativeThrottlePosition"
             :min="0"
             :max="100"
+            is_graded="true"
           ></progress-bar>
         </div>
 
@@ -102,6 +102,7 @@
             :level="engine.actualTorque"
             :min="0"
             :max="100"
+            is_graded="true"
           ></progress-bar>
         </div>
       </div>
@@ -137,8 +138,8 @@ export default {
 
         // Progress bars
         engineLoad: 45, // ENGINE_LOAD
-        relativeThrottlePosition: 45, // RELATIVE_THROTTLE_POSITION
-        actualTorque: 60, // ACTUAL_ENGINE_TORQUE
+        relativeThrottlePosition: 71, // RELATIVE_THROTTLE_POSITION
+        actualTorque: 91, // ACTUAL_ENGINE_TORQUE
       },
     };
   },
@@ -146,37 +147,27 @@ export default {
     if (window.EventSource) {
       var source = new EventSource("/events");
 
-      source.addEventListener(
-        "open",
-        function () {
-          console.log("Events Connected");
-        },
-        false
-      );
+      source.onopen = () => console.log("Events source connected");
+      source.onerror = (e) => {
+        if (e.target.readyState != EventSource.OPEN) {
+          console.log("Event source closed");
+          this.error = true;
+          // Hopefully the board will try reconnecting...
+        }
+      };
 
-      source.addEventListener(
-        "error",
-        function (e) {
-          if (e.target.readyState != EventSource.OPEN) {
-            console.log("Events Disconnected");
-            this.error = true;
-
-            // Tenta di riconnetterti, altirmenti ricarica la pagina
-          }
-        },
-        false
-      );
-
-      source.addEventListener(
-        "dataupdate",
-        (e) => this.updateEngine(e.data),
-        false
-      );
+      source.addEventListener("dataupdate", (e) => this.updateEngine(e.data), false);
     }
   },
   methods: {
     updateEngine(data) {
-      this.engine = JSON.parse(data);
+      var value = JSON.parse(data);
+      if(value['error'] != 'undefined') {
+        this.error = true;
+        console.log("OBD error, check board log");
+      } else {
+        this.engine = JSON.parse(data);
+      }
     },
   },
 };
@@ -202,8 +193,8 @@ body {
 }
 
 .vertical-center {
-  min-height: 100%; /* Fallback for browsers do NOT support vh unit */
-  min-height: 100vh; /* These two lines are counted as one :-) */
+  min-height: 100%; /* fallback */
+  min-height: 100vh;
 
   display: flex;
   align-items: center;

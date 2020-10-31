@@ -22,8 +22,8 @@ export default {
   computed: {
     state() {
       if (!this.is_graded) return "";
-      if (this.normalized > 90) return "bg-danger";
-      if (this.normalized > 70) return "bg-warning";
+      if (this.normalized >= 90) return "bg-danger";
+      if (this.normalized >= 70) return "bg-warning";
       return "bg-success";
     },
     normalized() {
