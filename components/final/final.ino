@@ -21,6 +21,10 @@ const char *password = "31415926";  // Enter your Password here
 // IPAddress gateway(192, 168, 1, 1);
 // IPAddress subnet(255, 255, 255, 0);
 
+// Gyro
+MPU6050 mpu(Wire);
+
+
 // Web server
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -45,7 +49,7 @@ engine_parameter elm_data[] = {
   { VEHICLE_SPEED,               "VEHICLE_SPEED",              id },
   { ENGINE_RPM,                  "ENGINE_RPM",                 [] (float value) { return value / 4.0; } },
   { FUEL_TANK_LEVEL_INPUT,       "FUEL_TANK_LEVEL_INPUT",      [] (float value) { return value / 2.55; } },
-  
+
   { AMBIENT_AIR_TEMP,            "AMBIENT_AIR_TEMP",           [] (float value) { return value - 40; } },
   { ENGINE_OIL_TEMP,             "ENGINE_OIL_TEMP",            [] (float value) { return value - 40; } },
   { ENGINE_COOLANT_TEMP,         "ENGINE_COOLANT_TEMP",        id },
@@ -88,20 +92,6 @@ void setup()
 
   Serial.println("File system mounted.");
 
-  /* Web server */
-
-  server.serveStatic("/", SPIFFS, "/");
-  // server.serveStatic("/", SPIFFS, "/js/");
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(SPIFFS, "/index.html");
-  });
-
-  server.begin();
-  server.addHandler(&events);
-
-  Serial.println("Web server started.");
-
   /* ELM327 */
 
   ELM_PORT.begin("ESP32", true);
@@ -115,6 +105,28 @@ void setup()
 
   Engine.begin(ELM_PORT);
   Serial.println("Connected to ELM327.");
+
+  /* Gyro */
+
+  Wire.begin();
+  mpu.begin();
+
+  // Base values
+  mpu.calcGyroOffsets();
+
+  /* Web server */
+
+  server.serveStatic("/", SPIFFS, "/");
+  // server.serveStatic("/", SPIFFS, "/js/");
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/index.html");
+  });
+
+  server.begin();
+  server.addHandler(&events);
+
+  Serial.println("Web server started.");
 }
 
 void loop()
@@ -131,12 +143,19 @@ void update_data()
   for(int i = 0; i < elm_data_len; i++)
     read_obd(elm_data[i]);
 
+  // Gyro
+  mpu.update();
+
+  float angle[3] = { mpu.getAngleX(), mpu.getAngleY(), mpu.getAngleZ() };
+  // TROVARE INCLINAZIONE (guarda l'algolo Y)
+  engineData["TILT"] = ...;
+
   /* Or if you want to detect errors */
   // int i = 0;
   // while(i < elm_data_len && read_obd(elm_data[i++]));
 
   #ifdef DEBUG
-    serializeJsonPretty(engine_data, Serial);  
+    serializeJsonPretty(engine_data, Serial);
     Serial.println();
   #endif
 }
