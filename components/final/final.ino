@@ -30,10 +30,36 @@ BluetoothSerial SerialBT;
 
 // ELM327
 ELM327 Engine;
-StaticJsonDocument<JSON_OBJECT_SIZE(10)> engineData;
+StaticJsonDocument<JSON_OBJECT_SIZE(10)> engine_data;
+
+// ELM data recovery informations
+struct engine_parameter {
+  uint8_t pid;
+  char *par_name;
+  std::function<float (float)> map;
+};
+
+std::function<float (float)> id = [] (float value) { return value; };
+
+engine_parameter elm_data[] = {
+  { VEHICLE_SPEED,               "VEHICLE_SPEED",              id },
+  { ENGINE_RPM,                  "ENGINE_RPM",                 [] (float value) { return value / 4.0; } },
+  { FUEL_TANK_LEVEL_INPUT,       "FUEL_TANK_LEVEL_INPUT",      [] (float value) { return value / 2.55; } },
+  
+  { AMBIENT_AIR_TEMP,            "AMBIENT_AIR_TEMP",           [] (float value) { return value - 40; } },
+  { ENGINE_OIL_TEMP,             "ENGINE_OIL_TEMP",            [] (float value) { return value - 40; } },
+  { ENGINE_COOLANT_TEMP,         "ENGINE_COOLANT_TEMP",        id },
+  { INTAKE_AIR_TEMP,             "INTAKE_AIR_TEMP",            id },
+
+  { ENGINE_LOAD,                 "ENGINE_LOAD",                [] (float value) { return value / 2.55; } },
+  { RELATIVE_THROTTLE_POSITION,  "RELATIVE_THROTTLE_POSITION", [] (float value) { return value / 2.55; } },
+  { ACTUAL_ENGINE_TORQUE,        "ACTUAL_ENGINE_TORQUE",       [] (float value) { return value - 125; } }
+};
+
+#define elm_data_len 10
 
 // Utility
-char engineDataString[300];
+char engine_data_string[elm_data_len * 30];
 
 void setup()
 {
@@ -94,48 +120,51 @@ void setup()
 void loop()
 {
   update_data();
-  serializeJson(engineData, engineDataString);
+  serializeJson(engine_data, engine_data_string);
 
-  events.send((const char *)engineDataString, "dataupdate", millis());
+  events.send((const char *)engine_data_string, "dataupdate", millis());
   delay(5);
 }
 
 void update_data()
-{ 
-  engineData["VEHICLE_SPEED"] = read_obd(VEHICLE_SPEED);
-  engineData["ENGINE_RPM"] = read_obd(ENGINE_RPM) / 4.0;
-  engineData["FUEL_TANK_LEVEL_INPUT"] = read_obd(FUEL_TANK_LEVEL_INPUT) / 2.55;
+{
+  for(int i = 0; i < elm_data_len; i++)
+    read_obd(elm_data[i]);
 
-  engineData["AMBIENT_AIR_TEMP"] = read_obd(AMBIENT_AIR_TEMP) - 40;
-  engineData["ENGINE_OIL_TEMP"] = read_obd(ENGINE_OIL_TEMP) - 40;
-  engineData["ENGINE_COOLANT_TEMP"] = read_obd(ENGINE_COOLANT_TEMP);
-  engineData["INTAKE_AIR_TEMP"] = read_obd(INTAKE_AIR_TEMP);
+  /* Or if you want to detect errors */
+  // int i = 0;
+  // while(i < elm_data_len && read_obd(elm_data[i++]));
 
-  engineData["ENGINE_LOAD"] = read_obd(ENGINE_LOAD) / 2.55;
-  engineData["RELATIVE_THROTTLE_POSITION"] = read_obd(RELATIVE_THROTTLE_POSITION) / 2.55;
-  engineData["ACTUAL_ENGINE_TORQUE"] = read_obd(ACTUAL_ENGINE_TORQUE) - 125;
-
-  // DEBUG
-  serializeJsonPretty(engineData, Serial);
-  Serial.println();
+  #ifdef DEBUG
+    serializeJsonPretty(engine_data, Serial);  
+    Serial.println();
+  #endif
 }
 
-float read_obd(uint8_t pid)
+bool read_obd(struct engine_parameter ep)
 {
-  Engine.queryPID(SERVICE_01, pid);
+  Engine.queryPID(SERVICE_01, ep.pid);
 
-  // Everything when fine
-  if(Engine.status == ELM_SUCCESS)
-    return Engine.findResponse();
+  switch(Engine.status) {
+    case ELM_SUCCESS:
+      // Everything when fine
+      engine_data[ep.par_name] = ep.map(Engine.findResponse());
+      return true;
+    case ELM_NO_RESPONSE:
+    case ELM_GARBAGE:
+      // The ECU doesn't provide this datum, the page will handle the error
+      engine_data[ep.par_name] = NULL;
 
-  // Something went wrong, Engine.status contains the error code
-  DEBUG.print("OBD error code ");
-  DEBUG.println(error);
+      DEBUG_PORT.print(ep.par_name);
+      DEBUG_PORT.println(" is not available, skipping...");
+      return true;
+    default:
+      // There is a problem with the ELM sensor
+      // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
+      engine_data["ERROR"] = Engine.status;
 
-  // There is a problem with the ELM sensor
-  if(Engine.status != ELM_NO_RESPONSE && Engine.status != ELM_GARBAGE)
-    engineData["ERROR"] = error;
-
-  // The ECU doesn't provide this datum, the page will handle the error
-  return NULL;
+      DEBUG_PORT.print("ELM not responding with error ");
+      DEBUG_PORT.println(Engine.status);
+      return false;
+  }
 }
