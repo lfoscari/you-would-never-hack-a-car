@@ -1,5 +1,5 @@
 <template>
-  <div class="text-center">
+  <div class="col text-center">
     <span class="display-1 font-weight-bold">{{ value }}</span>
     <small v-if="unit">{{ unit }}</small>
     <p class="mb-0">{{ name }}</p>

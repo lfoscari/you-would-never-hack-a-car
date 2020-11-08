@@ -1,7 +1,5 @@
 <template>
-  <div>
-    <span v-if="unit === ''" class="mb-1 d-block">{{ name }}: {{ level }}</span>
-    <span v-else class="mb-1 d-block">{{ name }} ({{ unit }}): {{ level }}</span>
+  <div class="col-4 text-center">
     <div class="progress">
       <div
         :class="[state, 'progress-bar']"
@@ -12,6 +10,10 @@
         :aria-valuemax="max"
       ></div>
     </div>
+    <span v-if="unit === ''" class="mt-1 d-block">{{ name }}: {{ level }}</span>
+    <span v-else class="mt-1 d-block"
+      >{{ name }} ({{ unit }}): {{ level }}</span
+    >
   </div>
 </template>
 
