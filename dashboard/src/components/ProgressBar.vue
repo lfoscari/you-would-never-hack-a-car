@@ -1,5 +1,5 @@
 <template>
-  <div class="col-4 text-center">
+  <div class="col-4 text-center" v-if="typeof this.level != 'undefined'">
     <div class="progress">
       <div
         :class="[state, 'progress-bar']"
@@ -15,6 +15,7 @@
       >{{ name }} ({{ unit }}): {{ level }}</span
     >
   </div>
+  <div class="col-4 text-center" v-else>{{ name }} not available</div>
 </template>
 
 <script>

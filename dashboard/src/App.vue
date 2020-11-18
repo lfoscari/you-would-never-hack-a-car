@@ -7,61 +7,40 @@
       <h1>Error reading the data file</h1>
     </div>
     <div v-else-if="!showTilt" class="col-12">
-      <div class="row badges mb-4">
-        <badge
-          v-if="typeof engine.vehicleSpeed != 'undefined'"
-          name="Speed"
-          unit="km/h"
-          :value="engine.vehicleSpeed"
-        ></badge>
-
-        <badge
-          v-if="typeof engine.engineRPM != 'undefined'"
-          name="RPM"
-          :value="engine.engineRPM"
-        ></badge>
-
-        <badge
-          v-if="typeof engine.fuelLevel != 'undefined'"
-          name="Fuel level"
-          unit="%"
-          :value="engine.fuelLevel"
-        ></badge>
+      <div class="row mb-4">
+        <badge name="Speed" unit="km/h" :value="engine.vehicleSpeed"></badge>
+        <badge name="RPM" :value="engine.engineRPM"></badge>
+        <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge>
 
         <div class="clearfix"></div>
 
         <badge
-          v-if="typeof engine.ambientAirTemperature != 'undefined'"
           name="Air temperature"
           unit="C°"
           :value="engine.ambientAirTemperature"
         ></badge>
 
         <badge
-          v-if="typeof engine.intakeAirTemperature != 'undefined'"
           name="Air intake temperature"
           unit="C°"
           :value="engine.intakeAirTemperature"
         ></badge>
 
         <badge
-          v-if="typeof engine.oilTemperature != 'undefined'"
           name="Oil temperature"
           unit="C°"
           :value="engine.oilTemperature"
         ></badge>
 
         <badge
-          v-if="typeof engine.coolantTemperature != 'undefined'"
           name="Coolant temperature"
           unit="C°"
           :value="engine.coolantTemperature"
         ></badge>
       </div>
 
-      <div class="row progress-bars">
+      <div class="row">
         <progress-bar
-          v-if="typeof engine.engineLoad != 'undefined'"
           name="Engine load"
           unit="%"
           :level="engine.engineLoad"
@@ -70,7 +49,6 @@
         ></progress-bar>
 
         <progress-bar
-          v-if="typeof engine.relativeThrottlePosition != 'undefined'"
           name="Throttle position"
           unit="%"
           :level="engine.relativeThrottlePosition"
@@ -80,7 +58,6 @@
         ></progress-bar>
 
         <progress-bar
-          v-if="typeof engine.actualTorque != 'undefined'"
           name="Actual torque"
           unit="%"
           :level="engine.actualTorque"
@@ -91,17 +68,8 @@
       </div>
     </div>
     <div v-else class="row">
-      <tilt
-        v-if="typeof engine.xTilt != 'undefined'"
-        name="Slope"
-        :value="engine.xTilt"
-      ></tilt>
-
-      <tilt
-        v-if="typeof engine.yTilt != 'undefined'"
-        name="Swinging"
-        :value="engine.yTilt"
-      ></tilt>
+      <tilt name="Pitching" :value="engine.xTilt"></tilt>
+      <tilt name="Rolling" :value="engine.yTilt"></tilt>
     </div>
   </div>
 </template>
@@ -198,8 +166,8 @@ body {
   color: var(--bs-light);
 }
 
-.badges > div {
-  min-width: 25%;
+.row {
+  align-items: center;
 }
 
 .progress {

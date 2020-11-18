@@ -1,10 +1,16 @@
 <template>
-  <div class="col-6 text-center position-relative">
+  <div
+    class="col-6 text-center position-relative"
+    v-if="typeof value != 'undefined'"
+  >
     <div class="angle-container">
       <div class="angle" v-bind:style="{ transform: rotation }"></div>
     </div>
     <span class="display-1 font-weight-bold">{{ value }}°</span>
     <p class="mb-0">{{ name }}</p>
+  </div>
+  <div class="col-6 text-center position-relative" v-else>
+    {{ name }} not available
   </div>
 </template>
 
