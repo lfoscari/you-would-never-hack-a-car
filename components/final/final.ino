@@ -9,6 +9,9 @@
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
 
+#include <Wire.h>
+#include <MPU6050_light.h>
+
 #define DEBUG_PORT Serial
 #define ELM_PORT SerialBT
 
@@ -23,7 +26,6 @@ const char *password = "31415926";  // Enter your Password here
 
 // Gyro
 MPU6050 mpu(Wire);
-
 
 // Web server
 AsyncWebServer server(80);
@@ -43,24 +45,22 @@ struct engine_parameter {
   std::function<float (float)> map;
 };
 
-std::function<float (float)> id = [] (float value) { return value; };
-
 engine_parameter elm_data[] = {
-  { VEHICLE_SPEED,               "VEHICLE_SPEED",              id },
-  { ENGINE_RPM,                  "ENGINE_RPM",                 [] (float value) { return value / 4.0; } },
-  { FUEL_TANK_LEVEL_INPUT,       "FUEL_TANK_LEVEL_INPUT",      [] (float value) { return value / 2.55; } },
+  { VEHICLE_SPEED,               "vehicleSpeed",              [] (float value) { return value; } },
+  { ENGINE_RPM,                  "engineRPM",                 [] (float value) { return value / 4.0; } },
+  { FUEL_TANK_LEVEL_INPUT,       "fuelLevel",                 [] (float value) { return value / 2.55; } },
 
-  { AMBIENT_AIR_TEMP,            "AMBIENT_AIR_TEMP",           [] (float value) { return value - 40; } },
-  { ENGINE_OIL_TEMP,             "ENGINE_OIL_TEMP",            [] (float value) { return value - 40; } },
-  { ENGINE_COOLANT_TEMP,         "ENGINE_COOLANT_TEMP",        id },
-  { INTAKE_AIR_TEMP,             "INTAKE_AIR_TEMP",            id },
+  { AMBIENT_AIR_TEMP,            "ambientAirTemperature",     [] (float value) { return value - 40; } },
+  { ENGINE_OIL_TEMP,             "oilTemperature",            [] (float value) { return value - 40; } },
+  { ENGINE_COOLANT_TEMP,         "coolantTemperature",        [] (float value) { return value; } },
+  { INTAKE_AIR_TEMP,             "intakeAirTemperature",      [] (float value) { return value; } },
 
-  { ENGINE_LOAD,                 "ENGINE_LOAD",                [] (float value) { return value / 2.55; } },
-  { RELATIVE_THROTTLE_POSITION,  "RELATIVE_THROTTLE_POSITION", [] (float value) { return value / 2.55; } },
-  { ACTUAL_ENGINE_TORQUE,        "ACTUAL_ENGINE_TORQUE",       [] (float value) { return value - 125; } }
+  { ENGINE_LOAD,                 "engineLoad",                [] (float value) { return value / 2.55; } },
+  { RELATIVE_THROTTLE_POSITION,  "relativeThrottlePosition",  [] (float value) { return value / 2.55; } },
+  { ACTUAL_ENGINE_TORQUE,        "actualTorque",              [] (float value) { return value - 125; } }
 };
 
-#define elm_data_len 10
+#define elm_data_len 11
 
 // Utility
 char engine_data_string[elm_data_len * 30];
@@ -147,8 +147,8 @@ void update_data()
   mpu.update();
 
   float angle[3] = { mpu.getAngleX(), mpu.getAngleY(), mpu.getAngleZ() };
-  // TROVARE INCLINAZIONE (guarda l'algolo Y)
-  engineData["TILT"] = ...;
+  // TROVARE INCLINAZIONE (guarda l'algolo Y (?))
+  engineData["tilt"] = mpu.getAngleY();
 
   /* Or if you want to detect errors */
   // int i = 0;
