@@ -1,0 +1,2 @@
+serial="/dev/cu.usbserial-14110"
+fqbn="esp8266:esp8266:d1"

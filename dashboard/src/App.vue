@@ -126,6 +126,8 @@ export default {
         }
       };
 
+      source.onmessage = (m) => console.log(m.data);
+
       source.addEventListener(
         "dataupdate",
         (e) => this.updateEngine(e.data),

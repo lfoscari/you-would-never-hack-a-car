@@ -12,12 +12,16 @@
 #include <Wire.h>
 #include <MPU6050_light.h>
 
+#define SIZE(array) (sizeof(array) / sizeof(*(array)))
+
+#define DEBUG true
+
 #define DEBUG_PORT Serial
 #define ELM_PORT SerialBT
 
 // SSID & Password
-const char *ssid = "Offroad";       // Enter your SSID here
-const char *password = "31415926";  // Enter your Password here
+const char *ssid = "Offroad";
+const char *password = "31415926";
 
 // IP Address details
 // IPAddress local_ip(192, 168, 1, 1);
@@ -32,11 +36,11 @@ AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
 // Bluetooth
-BluetoothSerial SerialBT;
+BluetoothSerial ELM_PORT; // SerialBT
+StaticJsonDocument<JSON_OBJECT_SIZE(10)> vehicle_data;
 
 // ELM327
 ELM327 Engine;
-StaticJsonDocument<JSON_OBJECT_SIZE(10)> engine_data;
 
 // ELM data recovery informations
 struct engine_parameter {
@@ -60,10 +64,10 @@ engine_parameter elm_data[] = {
   { ACTUAL_ENGINE_TORQUE,        "actualTorque",              [] (float value) { return value - 125; } }
 };
 
-#define elm_data_len 11
+#define par_count 12
 
 // Utility
-char engine_data_string[elm_data_len * 30];
+char vehicle_data_string[par_count * 30];
 
 void setup()
 {
@@ -86,15 +90,16 @@ void setup()
     }
   }
 
-  // DEBUG: ls
-  // for(File file = SPIFFS.open("/"); file; file = file.openNextFile())
-  //  Serial.println(file.name());
+  #ifdef DEBUG
+  for(File file = SPIFFS.open("/"); file; file = file.openNextFile())
+    Serial.println(file.name());
+  #endif
 
   Serial.println("File system mounted.");
 
   /* ELM327 */
 
-  ELM_PORT.begin("ESP32", true);
+  /* ELM_PORT.begin("ESP32", true);
 
   if (!ELM_PORT.connect("OBDII")) {
     for (;;) {
@@ -104,7 +109,7 @@ void setup()
   }
 
   Engine.begin(ELM_PORT);
-  Serial.println("Connected to ELM327.");
+  Serial.println("Connected to ELM327."); */
 
   /* Gyro */
 
@@ -113,6 +118,8 @@ void setup()
 
   // Base values
   mpu.calcGyroOffsets();
+
+  Serial.println("Connected to MPU6050.");
 
   /* Web server */
 
@@ -131,31 +138,26 @@ void setup()
 
 void loop()
 {
-  update_data();
-  serializeJson(engine_data, engine_data_string);
+  /* update_data();
+  serializeJson(vehicle_data, vehicle_data_string);
 
-  events.send((const char *)engine_data_string, "dataupdate", millis());
-  delay(5);
+  events.send((const char *)vehicle_data_string, "dataupdate", millis());
+  delay(5); */
 }
 
 void update_data()
 {
-  for(int i = 0; i < elm_data_len; i++)
+  for(int i = 0; i < SIZE(elm_data); i++)
     read_obd(elm_data[i]);
 
-  // Gyro
-  mpu.update();
-
-  float angle[3] = { mpu.getAngleX(), mpu.getAngleY(), mpu.getAngleZ() };
-  // TROVARE INCLINAZIONE (guarda l'algolo Y (?))
-  engineData["tilt"] = mpu.getAngleY();
+  read_gyro();
 
   /* Or if you want to detect errors */
   // int i = 0;
   // while(i < elm_data_len && read_obd(elm_data[i++]));
 
   #ifdef DEBUG
-    serializeJsonPretty(engine_data, Serial);
+    serializeJsonPretty(vehicle_data, Serial);
     Serial.println();
   #endif
 }
@@ -166,13 +168,13 @@ bool read_obd(struct engine_parameter ep)
 
   switch(Engine.status) {
     case ELM_SUCCESS:
-      // Everything when fine
-      engine_data[ep.par_name] = ep.map(Engine.findResponse());
+      // Everything went fine
+      vehicle_data[ep.par_name] = ep.map(Engine.findResponse());
       return true;
     case ELM_NO_RESPONSE:
     case ELM_GARBAGE:
       // The ECU doesn't provide this datum, the page will handle the error
-      engine_data[ep.par_name] = NULL;
+      vehicle_data[ep.par_name] = NULL;
 
       DEBUG_PORT.print(ep.par_name);
       DEBUG_PORT.println(" is not available, skipping...");
@@ -180,10 +182,23 @@ bool read_obd(struct engine_parameter ep)
     default:
       // There is a problem with the ELM sensor
       // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
-      engine_data["ERROR"] = Engine.status;
+      vehicle_data["ERROR"] = Engine.status;
 
       DEBUG_PORT.print("ELM not responding with error ");
       DEBUG_PORT.println(Engine.status);
       return false;
   }
+}
+
+bool read_gyro() {
+  // float angle[3] = { mpu.getAngleX(), mpu.getAngleY(), mpu.getAngleZ() };
+  mpu.update();
+  
+  // Pitching (Y)
+  vehicle_data["xTilt"] = mpu.getAngleY();
+
+  // Rolling (Z???)
+  vehicle_data["yTilt"] = mpu.getAngleZ();
+
+  return true;
 }
