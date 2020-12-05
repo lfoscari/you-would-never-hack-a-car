@@ -3,8 +3,8 @@
     class="container-md vertical-center overflow-hidden"
     v-on:click="showTilt = !showTilt"
   >
-    <div v-if="error">
-      <h1>Error reading the data file</h1>
+    <div v-if="error != ''">
+      <h1>{{ error }}</h1>
     </div>
     <div v-else-if="!showTilt" class="col-12">
       <div class="row mb-4">
@@ -17,7 +17,7 @@
         <badge
           name="Air temperature"
           unit="C°"
-          :value="engine.ambientAirTemperature"
+          :value="Mathengine.ambientAirTemperature"
         ></badge>
 
         <badge
@@ -68,8 +68,8 @@
       </div>
     </div>
     <div v-else class="row">
-      <tilt name="Pitching" :value="engine.xTilt"></tilt>
-      <tilt name="Rolling" :value="engine.yTilt"></tilt>
+      <tilt name="Pitching" :value="engine.yTilt"></tilt>
+      <tilt name="Rolling" :value="engine.zTilt"></tilt>
     </div>
   </div>
 </template>
@@ -89,27 +89,27 @@ export default {
 
   data() {
     return {
-      error: false,
+      error: "",
       showTilt: false,
       engine: {
         // Badges (I)
-        vehicleSpeed: 95, // VEHICLE_SPEED
-        engineRPM: 500, // ENGINE_RPM
-        fuelLevel: 45, // FUEL_TANK_LEVEL_INPUT
+        vehicleSpeed: undefined, // VEHICLE_SPEED
+        engineRPM: undefined, // ENGINE_RPM
+        fuelLevel: undefined, // FUEL_TANK_LEVEL_INPUT
 
         // Badges (II)
-        ambientAirTemperature: 32, // AMBIENT_AIR_TEMP
-        oilTemperature: 45, // ENGINE_OIL_TEMP
-        coolantTemperature: 45, // ENGINE_COOLANT_TEMP
-        intakeAirTemperature: 60, // INTAKE_AIR_TEMP
+        ambientAirTemperature: undefined, // AMBIENT_AIR_TEMP
+        oilTemperature: undefined, // ENGINE_OIL_TEMP
+        coolantTemperature: undefined, // ENGINE_COOLANT_TEMP
+        intakeAirTemperature: undefined, // INTAKE_AIR_TEMP
 
         // Progress bars
-        engineLoad: 45, // ENGINE_LOAD
-        relativeThrottlePosition: 71, // RELATIVE_THROTTLE_POSITION
-        actualTorque: 91, // ACTUAL_ENGINE_TORQUE
+        engineLoad: undefined, // ENGINE_LOAD
+        relativeThrottlePosition: undefined, // RELATIVE_THROTTLE_POSITION
+        actualTorque: undefined, // ACTUAL_ENGINE_TORQUE
 
-        xTilt: 30, // XTILT
-        yTilt: 60, // YTILT
+        yTilt: undefined, // YTILT
+        zTilt: undefined, // ZTILT
       },
     };
   },
@@ -118,41 +118,20 @@ export default {
       var source = new EventSource("/events");
 
       source.onopen = () => console.log("Events source connected");
-      source.onerror = (e) => {
-        if (e.target.readyState != EventSource.OPEN) {
+
+      Object.keys(this.engine).forEach((key) => {
+        source.addEventListener(key, (m) => (this.engine[key] = m.data));
+      });
+
+      source.addEventListener("error", (e) => {
+        if (e.target.readyState != EventSource.OPEN)
           console.log("Event source closed");
-          // this.error = true;
-          // Hopefully the board will try reconnecting...
-        }
-      };
+        console.log("ERROR: ", e.data);
 
-      source.onmessage = (m) => console.log(m.data);
-
-      source.addEventListener(
-        "dataupdate",
-        (e) => this.updateEngine(e.data),
-        false
-      );
+        this.error = "There's been an error, reloading...";
+        setTimeout(() => (location = location.href), 2000);
+      });
     }
-
-    // Random data
-    setInterval(() => {
-      for (let key in this.engine)
-        this.engine[key] += Math.round(
-          this.engine[key] * (Math.random() - 0.5) * 0.1
-        );
-    }, 1000);
-  },
-  methods: {
-    updateEngine(data) {
-      var value = JSON.parse(data);
-      if (value["error"] != "undefined") {
-        this.error = true;
-        console.log("OBD error, check board log");
-      } else {
-        this.engine = JSON.parse(data);
-      }
-    },
   },
 };
 </script>

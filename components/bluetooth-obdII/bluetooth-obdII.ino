@@ -35,7 +35,7 @@ void setup()
 
 void loop()
 {
-  engineData["VEHICLE_SPEED"] = getValueFromOBD(VEHICLE_SPEED);
+  /* engineData["VEHICLE_SPEED"] = getValueFromOBD(VEHICLE_SPEED);
   engineData["ENGINE_RPM"] = getValueFromOBD(ENGINE_RPM) / 4.0;
   engineData["FUEL_TANK_LEVEL_INPUT"] = getValueFromOBD(FUEL_TANK_LEVEL_INPUT) / 2.55;
 
@@ -51,9 +51,7 @@ void loop()
   serializeJsonPretty(engineData, DEBUG_PORT);
   DEBUG_PORT.println();
 
-  delay(100);
-
-  // Wanna see me do it again?
+  delay(100); */
 
   /* float tempRPM = myELM327.rpm();
 
@@ -65,6 +63,6 @@ void loop()
     Serial.println(myELM327.status);
     delay(100);
   } */
+
+  Serial.println(Engine.rpm());
 }
-
-

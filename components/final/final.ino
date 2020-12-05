@@ -1,27 +1,29 @@
 #include <WiFi.h>
-#include <FS.h>
-
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+// #include <FS.h>
 #include <SPIFFS.h>
 
-#include <ArduinoJson.h>
+// Queste due cose sono le più pesanti,
+// si potrebbe trovare un'alternativa pià leggera
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
 
 #include <Wire.h>
 #include <MPU6050_light.h>
 
-#define SIZE(array) (sizeof(array) / sizeof(*(array)))
-
 #define DEBUG true
+#define SIZE(x) sizeof(x) / sizeof(x[0])
 
 #define DEBUG_PORT Serial
 #define ELM_PORT SerialBT
 
+#define PARAMETERS_COUNT 12
+
 // SSID & Password
-const char *ssid = "Offroad";
-const char *password = "31415926";
+#define ssid "Offroad"
+#define password "31415926"
 
 // IP Address details
 // IPAddress local_ip(192, 168, 1, 1);
@@ -36,8 +38,7 @@ AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
 // Bluetooth
-BluetoothSerial ELM_PORT; // SerialBT
-StaticJsonDocument<JSON_OBJECT_SIZE(10)> vehicle_data;
+BluetoothSerial ELM_PORT;
 
 // ELM327
 ELM327 Engine;
@@ -64,54 +65,35 @@ engine_parameter elm_data[] = {
   { ACTUAL_ENGINE_TORQUE,        "actualTorque",              [] (float value) { return value - 125; } }
 };
 
-#define par_count 12
-
-// Utility
-char vehicle_data_string[par_count * 30];
-
 void setup()
 {
   Serial.begin(115200);
 
-  /* Create soft access point */
-
-  WiFi.softAP(ssid, password);
-  // WiFi.softAPConfig(local_ip, gateway, subnet);
-
-  Serial.print("Wifi access point created.\nIP address: ");
-  Serial.println(WiFi.softAPIP());
-
-  /* Initialize SPIFFS */
-
-  if (!SPIFFS.begin(true)) {
-    for (;;) {
-      DEBUG_PORT.println("Couldn't mount SPIFFS.");
-      delay(1000);
-    }
-  }
-
-  #ifdef DEBUG
-  for(File file = SPIFFS.open("/"); file; file = file.openNextFile())
-    Serial.println(file.name());
-  #endif
-
-  Serial.println("File system mounted.");
 
   /* ELM327 */
 
-  /* ELM_PORT.begin("ESP32", true);
+  Serial.print("Connecting to OBDII... ");
+
+  ELM_PORT.begin("ESP32", true);
 
   if (!ELM_PORT.connect("OBDII")) {
-    for (;;) {
-      DEBUG_PORT.println("Couldn't connect to OBD scanner.");
-      delay(1000);
-    }
+    DEBUG_PORT.println("\nCouldn't connect to OBD scanner (phase 1). Restarting...");
+    delay(3000);
+    ESP.restart();
   }
 
-  Engine.begin(ELM_PORT);
-  Serial.println("Connected to ELM327."); */
+  if (!Engine.begin(ELM_PORT)) {
+    DEBUG_PORT.println("\nCouldn't connect to OBD scanner (phase 2). Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
+  
+  Serial.println("done.");
+
 
   /* Gyro */
+
+  Serial.print("Connecting to MPU6050... ");
 
   Wire.begin();
   mpu.begin();
@@ -119,9 +101,37 @@ void setup()
   // Base values
   mpu.calcGyroOffsets();
 
-  Serial.println("Connected to MPU6050.");
+  Serial.println("done.");
+
+
+  /* Create soft access point */
+
+  Serial.print("Creating access point... ");
+
+  WiFi.softAP(ssid, password);
+  // WiFi.softAPConfig(local_ip, gateway, subnet);
+
+  Serial.print("done [");
+  Serial.print(WiFi.softAPIP());
+  Serial.println("].");
+
+
+  /* Initialize SPIFFS */
+
+  Serial.print("Initializing file system... ");
+
+  if (!SPIFFS.begin(true)) {
+    DEBUG_PORT.println("\nCouldn't mount SPIFFS. Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("done.");
+
 
   /* Web server */
+
+  Serial.print("Starting web server... ");
 
   server.serveStatic("/", SPIFFS, "/");
   // server.serveStatic("/", SPIFFS, "/js/");
@@ -133,72 +143,63 @@ void setup()
   server.begin();
   server.addHandler(&events);
 
-  Serial.println("Web server started.");
+  Serial.println("done.");
 }
 
 void loop()
 {
-  /* update_data();
-  serializeJson(vehicle_data, vehicle_data_string);
-
-  events.send((const char *)vehicle_data_string, "dataupdate", millis());
-  delay(5); */
-}
-
-void update_data()
-{
   for(int i = 0; i < SIZE(elm_data); i++)
-    read_obd(elm_data[i]);
+    send_obd_data(elm_data[i]);
 
-  read_gyro();
-
-  /* Or if you want to detect errors */
-  // int i = 0;
-  // while(i < elm_data_len && read_obd(elm_data[i++]));
-
-  #ifdef DEBUG
-    serializeJsonPretty(vehicle_data, Serial);
-    Serial.println();
-  #endif
+  send_gyro_data();
 }
 
-bool read_obd(struct engine_parameter ep)
+void send_obd_data(struct engine_parameter ep)
 {
   Engine.queryPID(SERVICE_01, ep.pid);
+  char value[6];
 
   switch(Engine.status) {
     case ELM_SUCCESS:
       // Everything went fine
-      vehicle_data[ep.par_name] = ep.map(Engine.findResponse());
-      return true;
+      snprintf(value, sizeof(value), "%d", (int) ep.map(Engine.findResponse()));
+      events.send(value, ep.par_name, millis());
+      delay(100);
+
+      break;
+
     case ELM_NO_RESPONSE:
     case ELM_GARBAGE:
+    case ELM_NO_DATA:
       // The ECU doesn't provide this datum, the page will handle the error
-      vehicle_data[ep.par_name] = NULL;
-
       DEBUG_PORT.print(ep.par_name);
       DEBUG_PORT.println(" is not available, skipping...");
-      return true;
+
+      break;
+
     default:
       // There is a problem with the ELM sensor
       // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
-      vehicle_data["ERROR"] = Engine.status;
+      snprintf(value, sizeof(value), "%d", Engine.status);
+      events.send(value, "error", millis());
+      delay(100);
 
-      DEBUG_PORT.print("ELM not responding with error ");
+      DEBUG_PORT.print("ELM error ");
       DEBUG_PORT.println(Engine.status);
-      return false;
+
+      break;
   }
 }
 
-bool read_gyro() {
-  // float angle[3] = { mpu.getAngleX(), mpu.getAngleY(), mpu.getAngleZ() };
+void send_gyro_data() {
   mpu.update();
-  
-  // Pitching (Y)
-  vehicle_data["xTilt"] = mpu.getAngleY();
+  char value[6];
 
-  // Rolling (Z???)
-  vehicle_data["yTilt"] = mpu.getAngleZ();
+  snprintf(value, sizeof(value), "%f", mpu.getAngleY());
+  events.send(value, "yTilt", millis());
+  delay(100);
 
-  return true;
+  snprintf(value, sizeof(value), "%f", mpu.getAngleZ());
+  events.send(value, "zTilt", millis());
+  delay(100);
 }
