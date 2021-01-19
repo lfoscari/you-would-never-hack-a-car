@@ -30,7 +30,7 @@
     "css": {
       "extract": false
     },
-    "outputDir": "/Users/luigifoscari/Documents/PlatformIO/Projects/201204-144038-esp32dev/data"
+    "outputDir": "../components/obdII/data"
   },
   "eslintConfig": {
     "root": true,

@@ -27,11 +27,9 @@ export default {
 </script>
 
 <style>
-:root {
-  --size: 40vw;
-}
-
 .angle-container {
+  --size: 40vw;
+
   position: absolute;
   z-index: -10;
 

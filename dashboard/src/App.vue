@@ -17,7 +17,7 @@
         <badge
           name="Air temperature"
           unit="C°"
-          :value="Mathengine.ambientAirTemperature"
+          :value="engine.ambientAirTemperature"
         ></badge>
 
         <badge
@@ -68,8 +68,8 @@
       </div>
     </div>
     <div v-else class="row">
-      <tilt name="Pitching" :value="engine.yTilt"></tilt>
-      <tilt name="Rolling" :value="engine.zTilt"></tilt>
+      <tilt name="Pitch" :value="engine.yTilt"></tilt>
+      <tilt name="Roll" :value="engine.xTilt"></tilt>
     </div>
   </div>
 </template>
@@ -114,23 +114,13 @@ export default {
     };
   },
   mounted() {
-    if (window.EventSource) {
-      var source = new EventSource("/events");
+    if (window.WebSocket) {
+      var socket = new WebSocket(`ws://${window.location.host}/ws`);
 
-      source.onopen = () => console.log("Events source connected");
-
-      Object.keys(this.engine).forEach((key) => {
-        source.addEventListener(key, (m) => (this.engine[key] = m.data));
-      });
-
-      source.addEventListener("error", (e) => {
-        if (e.target.readyState != EventSource.OPEN)
-          console.log("Event source closed");
-        console.log("ERROR: ", e.data);
-
-        this.error = "There's been an error, reloading...";
-        setTimeout(() => (location = location.href), 2000);
-      });
+      socket.onmessage = (event) => {
+        var data = event.data.split(":");
+        this.engine[data[0]] = data[1];
+      };
     }
   },
 };
