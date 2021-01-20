@@ -1,5 +1,5 @@
 <template>
-  <div class="col-4 text-center" v-if="typeof this.level != 'undefined'">
+  <div class="col text-center" v-if="typeof this.level != 'undefined'">
     <div class="progress">
       <div
         :class="[state, 'progress-bar']"

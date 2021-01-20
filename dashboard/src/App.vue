@@ -10,15 +10,10 @@
       <div class="row mb-4">
         <badge name="Speed" unit="km/h" :value="engine.vehicleSpeed"></badge>
         <badge name="RPM" :value="engine.engineRPM"></badge>
-        <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge>
+        <badge name="Air temperature" unit="C°" :value="engine.ambientAirTemperature"></badge>
+        <!-- <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge> -->
 
         <div class="clearfix"></div>
-
-        <badge
-          name="Air temperature"
-          unit="C°"
-          :value="engine.ambientAirTemperature"
-        ></badge>
 
         <badge
           name="Air intake temperature"
@@ -108,12 +103,14 @@ export default {
         relativeThrottlePosition: undefined, // RELATIVE_THROTTLE_POSITION
         actualTorque: undefined, // ACTUAL_ENGINE_TORQUE
 
+        xTilt: undefined, // XTILT
         yTilt: undefined, // YTILT
-        zTilt: undefined, // ZTILT
       },
     };
   },
   mounted() {
+    // setInterval(() => Object.keys(this.engine).forEach((key) => this.engine[key] = Math.floor(Math.random() * 100)), 1000);
+
     if (window.WebSocket) {
       var socket = new WebSocket(`ws://${window.location.host}/ws`);
 

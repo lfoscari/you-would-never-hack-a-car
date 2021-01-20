@@ -6,13 +6,12 @@
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
 
-#include <Adafruit_MPU6050.h>
+#include <Wire.h>
+// #include <Adafruit_MPU6050.h>
 
 // Task handlers
 TaskHandle_t obd_task = NULL;
 TaskHandle_t gyro_task = NULL;
-
-int t = 4;
 
 // Functions
 void setup_obd();
@@ -45,35 +44,68 @@ AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more t
  * Gyroscope
  */
 
-Adafruit_MPU6050 mpu;
+// Adafruit_MPU6050 mpu;
+// sensors_event_t g;
+// double now, x, y;
+
+const int MPU_addr = 0x68, minVal = 265, maxVal = 402;
+int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, x, y;
 
 void send_gyro_data(void *parameters) {
   setup_gyro();
 
   for (;;) {
-    sensors_event_t g;
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x3B);
+    Wire.endTransmission(false);
+    Wire.requestFrom(MPU_addr, 14, 1);
 
-    // Update values
-    mpu.getGyroSensor()->getEvent(&g);
-    double now = millis() / 1000;
+    AcX = Wire.read() << 8 | Wire.read();
+    AcY = Wire.read() << 8 | Wire.read();
+    AcZ = Wire.read() << 8 | Wire.read();
 
-    target->printf("%s:%d", "xTilt", (int) (g.gyro.x * now));
-    target->printf("%s:%d", "yTilt", (int) (g.gyro.y * now));
+    int xAng = map(AcX, minVal, maxVal, -90, 90);
+    int yAng = map(AcY, minVal, maxVal, -90, 90);
+    int zAng = map(AcZ, minVal, maxVal, -90, 90);
+    
+    x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
+    y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
 
-    delay(200);
+    if (x > 180) x = 360 - x;
+    if (y > 180) y = 360 - y;
+
+    target->printf("%s:%d", "xTilt", x);
+    target->printf("%s:%d", "yTilt", y);
+
+    delay(400);
   }
 
-  vTaskDelete(NULL);
+  vTaskDelete(&gyro_task);
 }
 
 void setup_gyro() {
   Serial.print("Connecting to and calibrating MPU6050... ");
 
-  if (!mpu.begin()) {
-    DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
-    delay(3000);
-    ESP.restart();
-  }
+  Wire.begin();
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+
+  x = 0;
+  y = 0;
+
+  // if (!mpu.begin()) {
+  //   DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
+  //   delay(3000);
+  //   ESP.restart();
+  // }
+
+  // mpu.getGyroSensor()->getEvent(&g);
+  // now = millis() / 1000;
+
+  // x = g.gyro.x * now;
+  // y = g.gyro.y * now;
 
   Serial.println("done.");
 }
@@ -125,7 +157,7 @@ void send_obd_data(void *parameters) {
     read_obd_datum(engine, elm_data[i]);
   }
 
-  vTaskDelete(NULL);
+  vTaskDelete(&obd_task);
 }
 
 void read_obd_datum(ELM327 engine, struct engine_parameter ep)
@@ -211,8 +243,8 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
     
     Serial.println("Client disconnected");
 
-    vTaskDelete(obd_task);
-    vTaskDelete(gyro_task);
+    vTaskDelete(&obd_task);
+    vTaskDelete(&gyro_task);
     
     target = NULL;
 
