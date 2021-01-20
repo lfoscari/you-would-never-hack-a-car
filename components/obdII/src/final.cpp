@@ -32,11 +32,6 @@ void send_gyro_data();
 #define SSID "Offroad"
 #define PASSWORD "31415926"
 
-// Soft access point coordinates
-IPAddress local_ip(192, 168, 1, 1);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
-
 // Gyro
 Adafruit_MPU6050 mpu;
 double x, y, now;
@@ -44,7 +39,7 @@ double x, y, now;
 // Web server
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-AsyncWebSocketClient *target = NULL; // handle one client
+AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
 // Bluetooth
 BluetoothSerial ELM_PORT;
@@ -57,21 +52,22 @@ struct engine_parameter {
   uint8_t pid;
   char *par_name;
   std::function<float (float)> map;
+  float old;
 };
 
-engine_parameter elm_data[] = {
-  { VEHICLE_SPEED,               (char *) "vehicleSpeed",              [] (float value) { return value; } },
-  { ENGINE_RPM,                  (char *) "engineRPM",                 [] (float value) { return value / 4.0; } },
-  { FUEL_TANK_LEVEL_INPUT,       (char *) "fuelLevel",                 [] (float value) { return value / 2.55; } },
+const engine_parameter elm_data[] = {
+  { VEHICLE_SPEED,               (char *) "vehicleSpeed",              [] (float value) { return value; },          0.0 },
+  { ENGINE_RPM,                  (char *) "engineRPM",                 [] (float value) { return value / 4.0; },    0.0 },
+  { FUEL_TANK_LEVEL_INPUT,       (char *) "fuelLevel",                 [] (float value) { return value / 2.55; },   0.0 },
 
-  { AMBIENT_AIR_TEMP,            (char *) "ambientAirTemperature",     [] (float value) { return value - 40; } },
-  { ENGINE_OIL_TEMP,             (char *) "oilTemperature",            [] (float value) { return value - 40; } },
-  { ENGINE_COOLANT_TEMP,         (char *) "coolantTemperature",        [] (float value) { return value; } },
-  { INTAKE_AIR_TEMP,             (char *) "intakeAirTemperature",      [] (float value) { return value; } },
+  { AMBIENT_AIR_TEMP,            (char *) "ambientAirTemperature",     [] (float value) { return value - 40; },     0.0 },
+  { ENGINE_OIL_TEMP,             (char *) "oilTemperature",            [] (float value) { return value - 40; },     0.0 },
+  { ENGINE_COOLANT_TEMP,         (char *) "coolantTemperature",        [] (float value) { return value; },          0.0 },
+  { INTAKE_AIR_TEMP,             (char *) "intakeAirTemperature",      [] (float value) { return value; },          0.0 },
 
-  { ENGINE_LOAD,                 (char *) "engineLoad",                [] (float value) { return value / 2.55; } },
-  { RELATIVE_THROTTLE_POSITION,  (char *) "relativeThrottlePosition",  [] (float value) { return value / 2.55; } },
-  { ACTUAL_ENGINE_TORQUE,        (char *) "actualTorque",              [] (float value) { return value - 125; } }
+  { ENGINE_LOAD,                 (char *) "engineLoad",                [] (float value) { return value / 2.55; },   0.0 },
+  { RELATIVE_THROTTLE_POSITION,  (char *) "relativeThrottlePosition",  [] (float value) { return value / 2.55; },   0.0 },
+  { ACTUAL_ENGINE_TORQUE,        (char *) "actualTorque",              [] (float value) { return value - 125; },    0.0 }
 };
 
 void setup()
@@ -84,9 +80,7 @@ void setup()
     /* Create soft access point */
 
     Serial.print("Creating access point... ");
-
     WiFi.softAP(SSID, PASSWORD);
-    // WiFi.softAPConfig(local_ip, gateway, subnet);
 
     Serial.print("done [");
     Serial.print(WiFi.softAPIP());
@@ -196,9 +190,10 @@ void setup()
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    /* The MPU6050 sensor provides a rad/s measurement, to obtain the absolute
-    * delta of radiants from the base values we need to integrate over time.
-    * The following are the base values */
+    /* The MPU6050 sensor provides a deg/s measurements, to obtain the absolute
+     * position we simply integrate over seconds, which just means to multiply
+     * by the amounts of seconds passed since the base values were set.
+     */
     now = millis() / 1000;
     x = g.gyro.x * now;
     y = g.gyro.y * now;
@@ -231,8 +226,13 @@ void send_obd_data(struct engine_parameter ep)
   switch(Engine.status) {
     case ELM_SUCCESS:
       // Everything went fine
-      target->printf("%s:%d", ep.par_name, (int) ep.map(Engine.findResponse()));
-      delay(100);
+      float value = ep.map(Engine.findResponse());
+
+      if (value != ep.old) { // Send only if new (to reduce traffic)
+        target->printf("%s:%d", ep.par_name, (int) value);
+        ep.old = value;
+        delay(100);
+      }
 
       break;
 
