@@ -8,44 +8,90 @@
 
 #include <Adafruit_MPU6050.h>
 
+// Task handlers
+TaskHandle_t obd_task = NULL;
+TaskHandle_t gyro_task = NULL;
+
+int t = 4;
+
 // Functions
+void setup_obd();
+void send_obd_data(void *parameters);
+void read_obd_datum(ELM327 engine, struct engine_parameter ep);
+
+void setup_gyro();
+void send_gyro_data(void *parameters);
+
 void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
-void send_obd_data(struct engine_parameter ep);
-void send_gyro_data();
 
 // DEBUG
+#define DEBUG_PORT Serial
 #define _ENABLE_OBD false
 #define _ENABLE_GYRO true
 #define _ENABLE_WIFI_AP false
 #define _ENABLE_WEB_SERVER true
 
-#define DEBUG_PORT Serial
-
-// CONNECTION TO OBD
-#define ELM_PORT SerialBT
-
-// OBDII PARAMETERS 
-#define PARAMETERS_COUNT 12
-#define SIZE(x) sizeof(x) / sizeof(x[0])
-
 // SOFT ACCESS POINT SSID & Password
 #define SSID "Offroad"
 #define PASSWORD "31415926"
-
-// Gyro
-Adafruit_MPU6050 mpu;
-double x, y, now;
 
 // Web server
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
-// Bluetooth
-BluetoothSerial ELM_PORT;
 
-// ELM327
-ELM327 Engine;
+/********************************+
+ * Gyroscope
+ */
+
+Adafruit_MPU6050 mpu;
+
+void send_gyro_data(void *parameters) {
+  setup_gyro();
+
+  for (;;) {
+    sensors_event_t g;
+
+    // Update values
+    mpu.getGyroSensor()->getEvent(&g);
+    double now = millis() / 1000;
+
+    target->printf("%s:%d", "xTilt", (int) (g.gyro.x * now));
+    target->printf("%s:%d", "yTilt", (int) (g.gyro.y * now));
+
+    delay(200);
+  }
+
+  vTaskDelete(NULL);
+}
+
+void setup_gyro() {
+  Serial.print("Connecting to and calibrating MPU6050... ");
+
+  if (!mpu.begin()) {
+    DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("done.");
+}
+
+
+/********************************+
+ * OBD
+ */
+
+// OBDII PARAMETERS 
+#define PARAMETERS_COUNT 12
+#define SIZE(x) sizeof(x) / sizeof(x[0])
+
+// CONNECTION TO OBD
+#define ELM_PORT SerialBT
+
+ELM327 engine;
+BluetoothSerial ELM_PORT;
 
 // ELM data recovery informations
 struct engine_parameter {
@@ -69,6 +115,114 @@ const engine_parameter elm_data[] = {
   { RELATIVE_THROTTLE_POSITION,  (char *) "relativeThrottlePosition",  [] (float value) { return value / 2.55; },   0.0 },
   { ACTUAL_ENGINE_TORQUE,        (char *) "actualTorque",              [] (float value) { return value - 125; },    0.0 }
 };
+
+void send_obd_data(void *parameters) {
+  if (!engine.connected) {
+    setup_obd();
+  }
+
+  for (int i = 0;; i = (i + 1) % SIZE(elm_data)) {
+    read_obd_datum(engine, elm_data[i]);
+  }
+
+  vTaskDelete(NULL);
+}
+
+void read_obd_datum(ELM327 engine, struct engine_parameter ep)
+{
+  engine.queryPID(SERVICE_01, ep.pid);
+  float value;
+
+  switch (engine.status) {
+    case ELM_SUCCESS:
+      // Everything went fine
+      value = ep.map(engine.findResponse());
+
+      if (value != ep.old) { // Send only if new (to reduce traffic)
+        target->printf("%s:%d", ep.par_name, (int) value);
+        ep.old = value;
+        delay(100);
+      }
+
+      break;
+
+    case ELM_NO_RESPONSE:
+    case ELM_GARBAGE:
+    case ELM_NO_DATA:
+      // The ECU doesn't provide this datum, the page will handle the error
+      DEBUG_PORT.print(ep.par_name);
+      DEBUG_PORT.println(" is not available, skipping...");
+
+      break;
+
+    default:
+      // There is a problem with the ELM sensor
+      // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
+      target->printf("%s:%d", "error", (int) engine.status);
+      delay(100);
+
+      DEBUG_PORT.print("ELM error ");
+      DEBUG_PORT.println(engine.status);
+
+      break;
+  }
+}
+
+void setup_obd() {
+  Serial.print("Connecting to OBDII... ");
+
+  ELM_PORT.begin("ESP32", true);
+
+  if (!ELM_PORT.connect("OBDII")) {
+    DEBUG_PORT.println("failed!\nCouldn't connect to OBD scanner (phase 1). Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  if (!engine.begin(ELM_PORT)) {
+    DEBUG_PORT.println("failed!\nCouldn't connect to OBD scanner (phase 2). Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("done.");
+}
+
+
+/********************************+
+ * Socket
+ */
+
+void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
+  if (type == WS_EVT_CONNECT) {
+  
+    Serial.println("Websocket client connection received");
+    target = client;
+
+    if (_ENABLE_OBD && obd_task == NULL) {
+      xTaskCreatePinnedToCore(send_obd_data, "OBD", 10000, NULL, 1, &obd_task, 1);
+    }
+
+    if (_ENABLE_GYRO && gyro_task == NULL) {
+      xTaskCreatePinnedToCore(send_gyro_data, "GYRO", 10000, NULL, 1, &gyro_task, 1);
+    }
+
+  } else if (type == WS_EVT_DISCONNECT) {
+    
+    Serial.println("Client disconnected");
+
+    vTaskDelete(obd_task);
+    vTaskDelete(gyro_task);
+    
+    target = NULL;
+
+  }
+}
+
+
+/********************************+
+ * Setup
+ */
 
 void setup()
 {
@@ -126,7 +280,7 @@ void setup()
     // server.serveStatic("/", SPIFFS, "/js/");
     // server.serveStatic("/", SPIFFS, "/images/");
 
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request) {
       request->send(SPIFFS, "/index.html");
     });
 
@@ -140,150 +294,11 @@ void setup()
     Serial.println("done.");
 
   #else
-
     Serial.println("Skipping file system and web server...");
-
   #endif
 
-
-  #if _ENABLE_OBD
-
-    /* ELM327 */
-
-    Serial.print("Connecting to OBDII... ");
-
-    ELM_PORT.begin("ESP32", true);
-
-    if (!ELM_PORT.connect("OBDII")) {
-      DEBUG_PORT.println("failed!\nCouldn't connect to OBD scanner (phase 1). Restarting...");
-      delay(3000);
-      ESP.restart();
-    }
-
-    if (!Engine.begin(ELM_PORT)) {
-      DEBUG_PORT.println("failed!\nCouldn't connect to OBD scanner (phase 2). Restarting...");
-      delay(3000);
-      ESP.restart();
-    }
-
-    Serial.println("done.");
-
-  #else
-
-    Serial.println("Skipping OBDII...");
-
-  #endif
-
-
-  #if _ENABLE_GYRO
-
-    /* Gyro */
-
-    Serial.print("Connecting to and calibrating MPU6050... ");
-
-    if (!mpu.begin()) {
-      DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
-      delay(3000);
-      ESP.restart();
-    }
-
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-    /* The MPU6050 sensor provides a deg/s measurements, to obtain the absolute
-     * position we simply integrate over seconds, which just means to multiply
-     * by the amounts of seconds passed since the base values were set.
-     */
-    now = millis() / 1000;
-    x = g.gyro.x * now;
-    y = g.gyro.y * now;
-
-    Serial.println("done.");
-
-  #else
-
-    Serial.println("Skipping gyroscope...");
-
-  #endif
 
   Serial.println("Setup complete.");
 }
 
-void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
-  if (type == WS_EVT_CONNECT) {
-    Serial.println("Websocket client connection received");
-    target = client;
-  } else if (type == WS_EVT_DISCONNECT) {
-    Serial.println("Client disconnected");
-    target = NULL;
-  }
-}
-
-void send_obd_data(struct engine_parameter ep)
-{
-  Engine.queryPID(SERVICE_01, ep.pid);
-
-  switch(Engine.status) {
-    case ELM_SUCCESS:
-      // Everything went fine
-      float value = ep.map(Engine.findResponse());
-
-      if (value != ep.old) { // Send only if new (to reduce traffic)
-        target->printf("%s:%d", ep.par_name, (int) value);
-        ep.old = value;
-        delay(100);
-      }
-
-      break;
-
-    case ELM_NO_RESPONSE:
-    case ELM_GARBAGE:
-    case ELM_NO_DATA:
-      // The ECU doesn't provide this datum, the page will handle the error
-      DEBUG_PORT.print(ep.par_name);
-      DEBUG_PORT.println(" is not available, skipping...");
-
-      break;
-
-    default:
-      // There is a problem with the ELM sensor
-      // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
-      target->printf("%s:%d", "error", (int) Engine.status);
-      delay(100);
-
-      DEBUG_PORT.print("ELM error ");
-      DEBUG_PORT.println(Engine.status);
-
-      break;
-  }
-}
-
-void send_gyro_data() {
-  sensors_event_t g;
-
-  // Update values
-  mpu.getGyroSensor()->getEvent(&g);
-
-  now = millis() / 1000;
-  x = g.gyro.x * now;
-  y = g.gyro.y * now;
-
-  target->printf("%s:%d", "xTilt", (int) x);
-  target->printf("%s:%d", "yTilt", (int) y);
-
-  delay(100);
-}
-
-void loop()
-{
-  if (target != NULL) {
-    #if _ENABLE_OBD
-      for(int i = 0; i < SIZE(elm_data); i++)
-        send_obd_data(elm_data[i]);
-    #endif
-
-    #if _ENABLE_GYRO
-      send_gyro_data();
-    #endif
-  }
-}
+void loop() {}
