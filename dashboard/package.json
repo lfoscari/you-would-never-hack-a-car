@@ -30,7 +30,7 @@
     "css": {
       "extract": false
     },
-    "outputDir": "../components/obdII/data"
+    "outputDir": "../board/data"
   },
   "eslintConfig": {
     "root": true,

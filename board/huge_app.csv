@@ -3,7 +3,3 @@ nvs,      data, nvs,     0x9000,  0x5000,
 otadata,  data, ota,     0xe000,  0x2000, # RIMUOVERE QUESTA?
 app0,     app,  ota_0,   0x10000, 0x300000,
 spiffs,   data, spiffs,  0x310000,0xF0000,
-
-# There is also a new "otadata" slot, which holds the data for OTA updates. The bootloader consults this data in order to know which app to execute. If "ota data" is empty, it will execute the factory app.
-
-# The "Offset" field for each partition is empty. The gen_esp32part.py tool fills in each blank offset, starting after the partition table and making sure each partition is aligned correctly.
