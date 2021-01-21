@@ -139,7 +139,7 @@ void send_obd_data(void *parameters) {
   }
 
   for (int i = 0;; i = (i + 1) % SIZE(elm_data)) {
-    read_obd_datum(engine, elm_data[i]);
+    read_obd_datum(elm_data[i]);
   }
 
   vTaskDelete(&obd_task);
