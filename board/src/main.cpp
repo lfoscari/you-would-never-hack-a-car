@@ -1,76 +1,72 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-
 #include <ESPAsyncWebServer.h>
-
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
-
 #include <Wire.h>
-
-// Task handlers
-TaskHandle_t obd_task = NULL;
-TaskHandle_t gyro_task = NULL;
-
-// Functions
-void setup_obd();
-void send_obd_data(void *parameters);
-void read_obd_datum(struct engine_parameter ep);
-
-void setup_gyro();
-void send_gyro_data(void *parameters);
-
-void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 // DEBUG
 #define DEBUG_PORT Serial
 #define _ENABLE_OBD false
 #define _ENABLE_GYRO true
-#define _ENABLE_WIFI_AP false
+#define _ENABLE_WIFI_SAP false
 #define _ENABLE_WEB_SERVER true
+
+// FUNCTIONS
+void setup_obd();
+void send_obd_data(void *parameters);
+void read_obd_datum(struct engine_parameter ep);
+void setup_gyro();
+void send_gyro_data(void *parameters);
+void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 // SOFT ACCESS POINT SSID & Password
 #define SSID "Offroad"
 #define PASSWORD "31415926"
 
-// Web server
+// WEB SERVER
 AsyncWebServer server(80);
 AsyncWebSocket ws("/engine");
 AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
+// TASK HANDLERS
+TaskHandle_t obd_task = NULL;
+TaskHandle_t gyro_task = NULL;
 
 /********************************+
  * Gyroscope
  */
 
-bool gyro_ready = false;
+#define MPU_ADDR 0x68
+#define minVal 265
+#define maxVal 402
 
-const int MPU_addr = 0x68, minVal = 265, maxVal = 402;
-int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, x, y;
+bool gyro_ready = false;
+int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, xAng, yAng, zAng, x, y;
 
 void send_gyro_data(void *parameters) {
   if (!gyro_ready)
     setup_gyro();
 
   for (;;) {
-    Wire.beginTransmission(MPU_addr);
+    Wire.beginTransmission(MPU_ADDR);
     Wire.write(0x3B);
     Wire.endTransmission(false);
-    Wire.requestFrom(MPU_addr, 14, 1);
+    Wire.requestFrom(MPU_ADDR, 14, 1);
 
     AcX = Wire.read() << 8 | Wire.read();
     AcY = Wire.read() << 8 | Wire.read();
     AcZ = Wire.read() << 8 | Wire.read();
 
-    int xAng = map(AcX, minVal, maxVal, -90, 90);
-    int yAng = map(AcY, minVal, maxVal, -90, 90);
-    int zAng = map(AcZ, minVal, maxVal, -90, 90);
+    xAng = map(AcX, minVal, maxVal, -90, 90);
+    yAng = map(AcY, minVal, maxVal, -90, 90);
+    zAng = map(AcZ, minVal, maxVal, -90, 90);
     
     x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
     y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
 
-    target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : x);
-    target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : y);
+    target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
+    target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
 
     delay(400);
   }
@@ -82,7 +78,7 @@ void setup_gyro() {
   Serial.print("Connecting to and calibrating MPU6050... ");
 
   Wire.begin();
-  Wire.beginTransmission(MPU_addr);
+  Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
@@ -246,7 +242,7 @@ void setup()
   Serial.begin(115200);
 
 
-  #if _ENABLE_WIFI_AP
+  #if _ENABLE_WIFI_SAP
 
     /* Create soft access point */
 
@@ -306,7 +302,6 @@ void setup()
     server.addHandler(&ws);
 
     server.begin();
-    // server.addHandler(&events);
   
     Serial.println("done.");
 

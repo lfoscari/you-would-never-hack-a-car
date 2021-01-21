@@ -136,7 +136,7 @@ export default {
     };
   },
   mounted() {
-    setInterval(() => Object.keys(this.engine).forEach((key) => this.engine[key] = Math.floor(Math.random() * 100)), 1000);
+    // setInterval(() => Object.keys(this.engine).forEach((key) => this.engine[key] = Math.floor(Math.random() * 100)), 1000);
 
     if (window.WebSocket) {
       var socket = new WebSocket(`ws://${window.location.host}/engine`);
