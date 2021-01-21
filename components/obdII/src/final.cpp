@@ -7,7 +7,6 @@
 #include <ELMduino.h>
 
 #include <Wire.h>
-// #include <Adafruit_MPU6050.h>
 
 // Task handlers
 TaskHandle_t obd_task = NULL;
@@ -16,7 +15,7 @@ TaskHandle_t gyro_task = NULL;
 // Functions
 void setup_obd();
 void send_obd_data(void *parameters);
-void read_obd_datum(ELM327 engine, struct engine_parameter ep);
+void read_obd_datum(struct engine_parameter ep);
 
 void setup_gyro();
 void send_gyro_data(void *parameters);
@@ -36,7 +35,7 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
 
 // Web server
 AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncWebSocket ws("/engine");
 AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
 
@@ -44,15 +43,14 @@ AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more t
  * Gyroscope
  */
 
-// Adafruit_MPU6050 mpu;
-// sensors_event_t g;
-// double now, x, y;
+bool gyro_ready = false;
 
 const int MPU_addr = 0x68, minVal = 265, maxVal = 402;
 int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, x, y;
 
 void send_gyro_data(void *parameters) {
-  setup_gyro();
+  if (!gyro_ready)
+    setup_gyro();
 
   for (;;) {
     Wire.beginTransmission(MPU_addr);
@@ -71,11 +69,8 @@ void send_gyro_data(void *parameters) {
     x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
     y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
 
-    if (x > 180) x = 360 - x;
-    if (y > 180) y = 360 - y;
-
-    target->printf("%s:%d", "xTilt", x);
-    target->printf("%s:%d", "yTilt", y);
+    target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : x);
+    target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : y);
 
     delay(400);
   }
@@ -95,17 +90,7 @@ void setup_gyro() {
   x = 0;
   y = 0;
 
-  // if (!mpu.begin()) {
-  //   DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
-  //   delay(3000);
-  //   ESP.restart();
-  // }
-
-  // mpu.getGyroSensor()->getEvent(&g);
-  // now = millis() / 1000;
-
-  // x = g.gyro.x * now;
-  // y = g.gyro.y * now;
+  gyro_ready = true;
 
   Serial.println("done.");
 }
@@ -160,7 +145,7 @@ void send_obd_data(void *parameters) {
   vTaskDelete(&obd_task);
 }
 
-void read_obd_datum(ELM327 engine, struct engine_parameter ep)
+void read_obd_datum(struct engine_parameter ep)
 {
   engine.queryPID(SERVICE_01, ep.pid);
   float value;

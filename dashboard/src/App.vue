@@ -8,9 +8,24 @@
     </div>
     <div v-else-if="!showTilt" class="col-12">
       <div class="row mb-4">
-        <badge name="Speed" unit="km/h" :value="engine.vehicleSpeed"></badge>
-        <badge name="RPM" :value="engine.engineRPM"></badge>
-        <badge name="Air temperature" unit="C°" :value="engine.ambientAirTemperature"></badge>
+
+        <badge
+          name="Speed"
+          unit="km/h"
+          :value="engine.vehicleSpeed"
+        ></badge>
+
+        <badge 
+          name="RPM"
+          :value="engine.engineRPM"
+        ></badge>
+
+        <badge 
+          name="Air temperature"
+          unit="C°"
+          :value="engine.ambientAirTemperature"
+        ></badge>
+
         <!-- <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge> -->
 
         <div class="clearfix"></div>
@@ -32,9 +47,11 @@
           unit="C°"
           :value="engine.coolantTemperature"
         ></badge>
+        
       </div>
 
       <div class="row">
+
         <progress-bar
           name="Engine load"
           unit="%"
@@ -60,11 +77,21 @@
           :max="100"
           is_graded="true"
         ></progress-bar>
+
       </div>
     </div>
     <div v-else class="row">
-      <tilt name="Pitch" :value="engine.yTilt"></tilt>
-      <tilt name="Roll" :value="engine.xTilt"></tilt>
+
+      <tilt
+        name="Pitch"
+        :value="engine.yTilt"
+      ></tilt>
+
+      <tilt
+        name="Roll"
+        :value="engine.xTilt"
+      ></tilt>
+
     </div>
   </div>
 </template>
@@ -109,10 +136,8 @@ export default {
     };
   },
   mounted() {
-    // setInterval(() => Object.keys(this.engine).forEach((key) => this.engine[key] = Math.floor(Math.random() * 100)), 1000);
-
     if (window.WebSocket) {
-      var socket = new WebSocket(`ws://${window.location.host}/ws`);
+      var socket = new WebSocket(`ws://${window.location.host}/engine`);
 
       socket.onmessage = (event) => {
         var data = event.data.split(":");
