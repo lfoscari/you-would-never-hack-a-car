@@ -3,8 +3,8 @@
     class="container-md vertical-center overflow-hidden"
     v-on:click="showTilt = !showTilt"
   >
-    <div v-if="error != ''">
-      <h1>{{ error }}</h1>
+    <div v-if="message != ''">
+      <h1>{{ message }}</h1>
     </div>
     <div v-else-if="!showTilt" class="col-12">
       <div class="row mb-4">
@@ -20,10 +20,10 @@
           :value="engine.engineRPM"
         ></badge>
 
-        <badge 
-          name="Air temperature"
-          unit="C°"
-          :value="engine.ambientAirTemperature"
+        <badge
+          name="Intake pressure"
+          unit="kPa"
+          :value="engine.intakePressure"
         ></badge>
 
         <!-- <badge name="Fuel level" unit="%" :value="engine.fuelLevel"></badge> -->
@@ -36,10 +36,16 @@
           :value="engine.intakeAirTemperature"
         ></badge>
 
-        <badge
+        <!-- <badge
           name="Oil temperature"
           unit="C°"
           :value="engine.oilTemperature"
+        ></badge> -->
+
+        <badge 
+          name="Air temperature"
+          unit="C°"
+          :value="engine.ambientAirTemperature"
         ></badge>
 
         <badge
@@ -69,14 +75,14 @@
           is_graded="true"
         ></progress-bar>
 
-        <progress-bar
+        <!-- <progress-bar
           name="Actual torque"
           unit="%"
           :level="engine.actualTorque"
           :min="0"
           :max="100"
           is_graded="true"
-        ></progress-bar>
+        ></progress-bar> -->
 
       </div>
     </div>
@@ -111,24 +117,22 @@ export default {
 
   data() {
     return {
-      error: "",
+      message: "",
       showTilt: false,
       engine: {
         // Badges (I)
         vehicleSpeed: undefined, // VEHICLE_SPEED
         engineRPM: undefined, // ENGINE_RPM
-        fuelLevel: undefined, // FUEL_TANK_LEVEL_INPUT
+        intakePressure: undefined, // INTAKE_MANIFOLD_ABS_PRESSURE
 
         // Badges (II)
-        ambientAirTemperature: undefined, // AMBIENT_AIR_TEMP
-        oilTemperature: undefined, // ENGINE_OIL_TEMP
-        coolantTemperature: undefined, // ENGINE_COOLANT_TEMP
         intakeAirTemperature: undefined, // INTAKE_AIR_TEMP
+        ambientAirTemperature: undefined, // AMBIENT_AIR_TEMP
+        coolantTemperature: undefined, // ENGINE_COOLANT_TEMP
 
         // Progress bars
         engineLoad: undefined, // ENGINE_LOAD
         relativeThrottlePosition: undefined, // RELATIVE_THROTTLE_POSITION
-        actualTorque: undefined, // ACTUAL_ENGINE_TORQUE
 
         xTilt: undefined, // XTILT
         yTilt: undefined, // YTILT
@@ -140,10 +144,16 @@ export default {
 
     if (window.WebSocket) {
       var socket = new WebSocket(`ws://${window.location.host}/engine`);
+      this.message = "Loading...";
 
       socket.onmessage = (event) => {
         var data = event.data.split(":");
-        this.engine[data[0]] = data[1];
+        if(data[0] == "error") {
+          this.message = data[1];
+        } else {
+          this.engine[data[0]] = data[1];
+          this.message = "";
+        }
       };
     }
   },

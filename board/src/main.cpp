@@ -1,23 +1,30 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include <ESPAsyncWebServer.h>
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
-#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+
+#define CONFIG_ASYNC_TCP_RUNNING_CORE 1
+#include <ESPAsyncWebServer.h>
+
+// #include "soc/rtc_wdt.h"
+
+// UTIL
+#define SIZE(x) sizeof(x) / sizeof(x[0])
 
 // DEBUG
 #define DEBUG_PORT Serial
-#define _ENABLE_OBD false
+#define _ENABLE_OBD true
 #define _ENABLE_GYRO true
-#define _ENABLE_WIFI_SAP false
+#define _ENABLE_WIFI_SAP true
 #define _ENABLE_WEB_SERVER true
 
 // FUNCTIONS
 void setup_obd();
-void send_obd_data(void *parameters);
-void read_obd_datum(struct engine_parameter ep);
+void send_obd_data();
+void read_obd(struct engine_parameter ep);
 void setup_gyro();
-void send_gyro_data(void *parameters);
+void send_gyro_data();
 void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 // SOFT ACCESS POINT SSID & Password
@@ -29,65 +36,72 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/engine");
 AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
-// TASK HANDLERS
-TaskHandle_t obd_task = NULL;
-TaskHandle_t gyro_task = NULL;
-
 /********************************+
  * Gyroscope
  */
 
-#define MPU_ADDR 0x68
-#define minVal 265
-#define maxVal 402
-
+Adafruit_MPU6050 mpu;
 bool gyro_ready = false;
-int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, xAng, yAng, zAng, x, y;
 
-void send_gyro_data(void *parameters) {
-  if (!gyro_ready)
-    setup_gyro();
+// double x, y;
 
-  for (;;) {
-    Wire.beginTransmission(MPU_ADDR);
-    Wire.write(0x3B);
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU_ADDR, 14, 1);
+// #define MPU_ADDR 0x68
+// #define minVal 265
+// #define maxVal 402
+// int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, xAng, yAng, zAng, x, y;
 
-    AcX = Wire.read() << 8 | Wire.read();
-    AcY = Wire.read() << 8 | Wire.read();
-    AcZ = Wire.read() << 8 | Wire.read();
+// void send_gyro_data(void *parameters) {
+//   for (;;) {
 
-    xAng = map(AcX, minVal, maxVal, -90, 90);
-    yAng = map(AcY, minVal, maxVal, -90, 90);
-    zAng = map(AcZ, minVal, maxVal, -90, 90);
+//     if (!gyro_ready) {
+//       continue;
+//     }
+
+//     Wire.beginTransmission(MPU_ADDR);
+//     Wire.write(0x3B);
+//     Wire.endTransmission(false);
+//     Wire.requestFrom(MPU_ADDR, 14, 1);
+
+//     AcX = Wire.read() << 8 | Wire.read();
+//     AcY = Wire.read() << 8 | Wire.read();
+//     AcZ = Wire.read() << 8 | Wire.read();
+
+//     xAng = map(AcX, minVal, maxVal, -90, 90);
+//     yAng = map(AcY, minVal, maxVal, -90, 90);
+//     zAng = map(AcZ, minVal, maxVal, -90, 90);
     
-    x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
-    y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
+//     x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
+//     y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
 
-    target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
-    target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
+//     target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
+//     target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
 
-    delay(400);
-  }
+//     vTaskDelay(200);
+//   }
 
-  vTaskDelete(&gyro_task);
+//   vTaskDelete(NULL);
+// }
+
+void send_gyro_data() {
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  target->printf("%s:%d", "xTilt", (int) g.gyro.x);
+  target->printf("%s:%d", "yTilt", (int) g.gyro.y);
+
+  delay(10);
 }
 
 void setup_gyro() {
   Serial.print("Connecting to and calibrating MPU6050... ");
 
-  Wire.begin();
-  Wire.beginTransmission(MPU_ADDR);
-  Wire.write(0x6B);
-  Wire.write(0);
-  Wire.endTransmission(true);
-
-  x = 0;
-  y = 0;
+  if (!mpu.begin()) {
+    DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
+    delay(3000);
+    ESP.restart();
+  }
 
   gyro_ready = true;
-
   Serial.println("done.");
 }
 
@@ -96,13 +110,9 @@ void setup_gyro() {
  * OBD
  */
 
-// OBDII PARAMETERS 
-#define PARAMETERS_COUNT 12
-#define SIZE(x) sizeof(x) / sizeof(x[0])
-
-// CONNECTION TO OBD
 #define ELM_PORT SerialBT
 
+bool obd_ready = false;
 ELM327 engine;
 BluetoothSerial ELM_PORT;
 
@@ -115,34 +125,19 @@ struct engine_parameter {
 };
 
 const engine_parameter elm_data[] = {
-  { VEHICLE_SPEED,               (char *) "vehicleSpeed",              [] (float value) { return value; },          0.0 },
-  { ENGINE_RPM,                  (char *) "engineRPM",                 [] (float value) { return value / 4.0; },    0.0 },
-  { FUEL_TANK_LEVEL_INPUT,       (char *) "fuelLevel",                 [] (float value) { return value / 2.55; },   0.0 },
+  { VEHICLE_SPEED,                (char *) "vehicleSpeed",              [] (float value) { return value; },          -1.0f },
+  { ENGINE_RPM,                   (char *) "engineRPM",                 [] (float value) { return value / 4.0; },    -1.0f },
+  { INTAKE_MANIFOLD_ABS_PRESSURE, (char *) "intakePressure",            [] (float value) { return value; },          -1.0f },
 
-  { AMBIENT_AIR_TEMP,            (char *) "ambientAirTemperature",     [] (float value) { return value - 40; },     0.0 },
-  { ENGINE_OIL_TEMP,             (char *) "oilTemperature",            [] (float value) { return value - 40; },     0.0 },
-  { ENGINE_COOLANT_TEMP,         (char *) "coolantTemperature",        [] (float value) { return value; },          0.0 },
-  { INTAKE_AIR_TEMP,             (char *) "intakeAirTemperature",      [] (float value) { return value; },          0.0 },
+  { INTAKE_AIR_TEMP,              (char *) "intakeAirTemperature",      [] (float value) { return value; },          -1.0f },
+  { AMBIENT_AIR_TEMP,             (char *) "ambientAirTemperature",     [] (float value) { return value - 40.0; },   -1.0f },
+  { ENGINE_COOLANT_TEMP,          (char *) "coolantTemperature",        [] (float value) { return value; },          -1.0f },
 
-  { ENGINE_LOAD,                 (char *) "engineLoad",                [] (float value) { return value / 2.55; },   0.0 },
-  { RELATIVE_THROTTLE_POSITION,  (char *) "relativeThrottlePosition",  [] (float value) { return value / 2.55; },   0.0 },
-  { ACTUAL_ENGINE_TORQUE,        (char *) "actualTorque",              [] (float value) { return value - 125; },    0.0 }
+  { ENGINE_LOAD,                  (char *) "engineLoad",                [] (float value) { return value / 2.55; },   -1.0f },
+  { RELATIVE_THROTTLE_POSITION,   (char *) "relativeThrottlePosition",  [] (float value) { return value / 2.55; },   -1.0f },
 };
 
-void send_obd_data(void *parameters) {
-  if (!engine.connected) {
-    setup_obd();
-  }
-
-  for (int i = 0;; i = (i + 1) % SIZE(elm_data)) {
-    read_obd_datum(elm_data[i]);
-  }
-
-  vTaskDelete(&obd_task);
-}
-
-void read_obd_datum(struct engine_parameter ep)
-{
+void read_obd(struct engine_parameter ep) {
   engine.queryPID(SERVICE_01, ep.pid);
   float value;
 
@@ -154,7 +149,8 @@ void read_obd_datum(struct engine_parameter ep)
       if (value != ep.old) { // Send only if new (to reduce traffic)
         target->printf("%s:%d", ep.par_name, (int) value);
         ep.old = value;
-        delay(100);
+
+        delay(10);
       }
 
       break;
@@ -172,11 +168,11 @@ void read_obd_datum(struct engine_parameter ep)
       // There is a problem with the ELM sensor
       // Check https://github.com/PowerBroker2/ELMduino/blob/master/src/ELMduino.h#L264
       target->printf("%s:%d", "error", (int) engine.status);
-      delay(100);
 
       DEBUG_PORT.print("ELM error ");
       DEBUG_PORT.println(engine.status);
 
+      delay(10);
       break;
   }
 }
@@ -198,35 +194,76 @@ void setup_obd() {
     ESP.restart();
   }
 
+  // Serial.print("1-20: ");
+  // Serial.println(engine.supportedPIDs_1_20(), BIN);
+
+  // Serial.print("21-40: ");
+  // Serial.println(engine.supportedPIDs_21_40(), BIN);
+
+  // Serial.print("41-60: ");
+  // Serial.println(engine.supportedPIDs_41_60(), BIN);
+
+  // Serial.print("61-80: ");
+  // Serial.println(engine.supportedPIDs_61_80(), BIN);
+
+  obd_ready = true;
   Serial.println("done.");
 }
 
+
+// void setup(void *parameters) {
+
+//   for(;;) {
+
+//     for (int i = 0; i < SIZE(elm_data); i++) {
+//       read_obd(elm_data[i]);
+//     }
+
+//     // Wire.beginTransmission(MPU_ADDR);
+//     // Wire.write(0x3B);
+//     // Wire.endTransmission(false);
+//     // Wire.requestFrom(MPU_ADDR, 14, 1);
+
+//     // AcX = Wire.read() << 8 | Wire.read();
+//     // AcY = Wire.read() << 8 | Wire.read();
+//     // AcZ = Wire.read() << 8 | Wire.read();
+
+//     // xAng = map(AcX, minVal, maxVal, -90, 90);
+//     // yAng = map(AcY, minVal, maxVal, -90, 90);
+//     // zAng = map(AcZ, minVal, maxVal, -90, 90);
+    
+//     // x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
+//     // y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
+
+//     // target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
+//     // target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
+
+//     vTaskDelay(200);
+
+//   }
+
+//   vTaskDelete(NULL);
+// }
 
 /********************************+
  * Socket
  */
 
-void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
+void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
   
-    Serial.println("Websocket client connection received");
+    Serial.println("New client");
     target = client;
 
-    if (_ENABLE_OBD && obd_task == NULL) {
-      xTaskCreatePinnedToCore(send_obd_data, "OBD", 10000, NULL, 1, &obd_task, 1);
-    }
-
-    if (_ENABLE_GYRO && gyro_task == NULL) {
-      xTaskCreatePinnedToCore(send_gyro_data, "GYRO", 10000, NULL, 1, &gyro_task, 1);
-    }
-
   } else if (type == WS_EVT_DISCONNECT) {
-    
+
     Serial.println("Client disconnected");
 
-    vTaskDelete(&obd_task);
-    vTaskDelete(&gyro_task);
-    
+    // vTaskDelete(obd_task);
+    // vTaskDelete(gyro_task);
+    // obd_task = NULL;
+    // gyro_task = NULL;
+
     target = NULL;
 
   }
@@ -237,10 +274,10 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
  * Setup
  */
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-
+  // rtc_wdt_protect_off();
+  // rtc_wdt_disable();
 
   #if _ENABLE_WIFI_SAP
 
@@ -309,8 +346,29 @@ void setup()
     Serial.println("Skipping file system and web server...");
   #endif
 
-
   Serial.println("Setup complete.");
 }
 
-void loop() {}
+void loop() {
+  if (target != NULL) {
+
+    if (_ENABLE_OBD) {
+      if (!obd_ready) {
+        setup_obd();
+      }
+
+      for (int i = 0; i < SIZE(elm_data); i++) {
+        read_obd(elm_data[i]);
+      }
+    }
+
+    if (_ENABLE_GYRO) {
+      if (!gyro_ready) {
+        setup_gyro();
+      }
+
+      send_gyro_data();
+    }
+
+  }
+}
