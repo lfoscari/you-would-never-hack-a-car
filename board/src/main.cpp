@@ -7,8 +7,6 @@
 #define CONFIG_ASYNC_TCP_RUNNING_CORE 1
 #include <ESPAsyncWebServer.h>
 
-// #include "soc/rtc_wdt.h"
-
 // UTIL
 #define SIZE(x) sizeof(x) / sizeof(x[0])
 
@@ -23,8 +21,10 @@
 void setup_obd();
 void send_obd_data();
 void read_obd(struct engine_parameter ep);
+
 void setup_gyro();
 void send_gyro_data();
+
 void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 // SOFT ACCESS POINT SSID & Password
@@ -40,66 +40,46 @@ AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more t
  * Gyroscope
  */
 
-Adafruit_MPU6050 mpu;
+#define MPU_addr 0x68
+#define minVal 265
+#define maxVal 402
+
 bool gyro_ready = false;
-
-// double x, y;
-
-// #define MPU_ADDR 0x68
-// #define minVal 265
-// #define maxVal 402
-// int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, xAng, yAng, zAng, x, y;
-
-// void send_gyro_data(void *parameters) {
-//   for (;;) {
-
-//     if (!gyro_ready) {
-//       continue;
-//     }
-
-//     Wire.beginTransmission(MPU_ADDR);
-//     Wire.write(0x3B);
-//     Wire.endTransmission(false);
-//     Wire.requestFrom(MPU_ADDR, 14, 1);
-
-//     AcX = Wire.read() << 8 | Wire.read();
-//     AcY = Wire.read() << 8 | Wire.read();
-//     AcZ = Wire.read() << 8 | Wire.read();
-
-//     xAng = map(AcX, minVal, maxVal, -90, 90);
-//     yAng = map(AcY, minVal, maxVal, -90, 90);
-//     zAng = map(AcZ, minVal, maxVal, -90, 90);
-    
-//     x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
-//     y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
-
-//     target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
-//     target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
-
-//     vTaskDelay(200);
-//   }
-
-//   vTaskDelete(NULL);
-// }
+int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, x, y;
 
 void send_gyro_data() {
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+    
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_addr, 14);
 
-  target->printf("%s:%d", "xTilt", (int) g.gyro.x);
-  target->printf("%s:%d", "yTilt", (int) g.gyro.y);
+  AcX = Wire.read() << 8 | Wire.read();
+  AcY = Wire.read() << 8 | Wire.read();
+  AcZ = Wire.read() << 8 | Wire.read();
 
-  delay(10);
+  int xAng = map(AcX, minVal, maxVal, -90, 90);
+  int yAng = map(AcY, minVal, maxVal, -90, 90);
+  int zAng = map(AcZ, minVal, maxVal, -90, 90);
+
+  x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
+  y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
+
+  target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
+  delay(100);
+
+  target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
+  delay(100);
 }
 
 void setup_gyro() {
   Serial.print("Connecting to and calibrating MPU6050... ");
 
-  if (!mpu.begin()) {
-    DEBUG_PORT.println("failed!\nCouldn't connect to MPU6050. Restarting...");
-    delay(3000);
-    ESP.restart();
-  }
+  Wire.begin();
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
 
   gyro_ready = true;
   Serial.println("done.");
@@ -211,40 +191,6 @@ void setup_obd() {
 }
 
 
-// void setup(void *parameters) {
-
-//   for(;;) {
-
-//     for (int i = 0; i < SIZE(elm_data); i++) {
-//       read_obd(elm_data[i]);
-//     }
-
-//     // Wire.beginTransmission(MPU_ADDR);
-//     // Wire.write(0x3B);
-//     // Wire.endTransmission(false);
-//     // Wire.requestFrom(MPU_ADDR, 14, 1);
-
-//     // AcX = Wire.read() << 8 | Wire.read();
-//     // AcY = Wire.read() << 8 | Wire.read();
-//     // AcZ = Wire.read() << 8 | Wire.read();
-
-//     // xAng = map(AcX, minVal, maxVal, -90, 90);
-//     // yAng = map(AcY, minVal, maxVal, -90, 90);
-//     // zAng = map(AcZ, minVal, maxVal, -90, 90);
-    
-//     // x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
-//     // y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
-
-//     // target->printf("%s:%d", "xTilt", x > 180 ? 360 - x : -1 * x);
-//     // target->printf("%s:%d", "yTilt", y > 180 ? 360 - y : -1 * y);
-
-//     vTaskDelay(200);
-
-//   }
-
-//   vTaskDelete(NULL);
-// }
-
 /********************************+
  * Socket
  */
@@ -259,11 +205,7 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
 
     Serial.println("Client disconnected");
 
-    // vTaskDelete(obd_task);
-    // vTaskDelete(gyro_task);
-    // obd_task = NULL;
-    // gyro_task = NULL;
-
+    free(target);
     target = NULL;
 
   }
@@ -276,8 +218,6 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
 
 void setup() {
   Serial.begin(115200);
-  // rtc_wdt_protect_off();
-  // rtc_wdt_disable();
 
   #if _ENABLE_WIFI_SAP
 
@@ -296,7 +236,7 @@ void setup() {
 
     Serial.print("Connecting to Wifi... ");
 
-    WiFi.begin("👾", "passworD");
+    WiFi.begin("", "");
 
     while (WiFi.status() != WL_CONNECTED)
       delay(500);
@@ -327,8 +267,6 @@ void setup() {
     Serial.print("Starting web server... ");
 
     server.serveStatic("/", SPIFFS, "/");
-    // server.serveStatic("/", SPIFFS, "/js/");
-    // server.serveStatic("/", SPIFFS, "/images/");
 
     server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request) {
       request->send(SPIFFS, "/index.html");
@@ -352,6 +290,14 @@ void setup() {
 void loop() {
   if (target != NULL) {
 
+    if (_ENABLE_GYRO) {
+      if (!gyro_ready) {
+        setup_gyro();
+      }
+
+      send_gyro_data();
+    }
+
     if (_ENABLE_OBD) {
       if (!obd_ready) {
         setup_obd();
@@ -360,14 +306,6 @@ void loop() {
       for (int i = 0; i < SIZE(elm_data); i++) {
         read_obd(elm_data[i]);
       }
-    }
-
-    if (_ENABLE_GYRO) {
-      if (!gyro_ready) {
-        setup_gyro();
-      }
-
-      send_gyro_data();
     }
 
   }
