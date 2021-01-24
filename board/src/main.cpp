@@ -36,6 +36,7 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/engine");
 AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more trasform this into a list)
 
+
 /********************************+
  * Gyroscope
  */
@@ -45,7 +46,7 @@ AsyncWebSocketClient *target = NULL; // Handle just one client (to handle more t
 #define maxVal 402
 
 bool gyro_ready = false;
-int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ, x, y;
+int16_t AcX, AcY, AcZ, xAng, yAng, zAng, x, y;
 
 void send_gyro_data() {
     
@@ -58,9 +59,9 @@ void send_gyro_data() {
   AcY = Wire.read() << 8 | Wire.read();
   AcZ = Wire.read() << 8 | Wire.read();
 
-  int xAng = map(AcX, minVal, maxVal, -90, 90);
-  int yAng = map(AcY, minVal, maxVal, -90, 90);
-  int zAng = map(AcZ, minVal, maxVal, -90, 90);
+  xAng = map(AcX, minVal, maxVal, -90, 90);
+  yAng = map(AcY, minVal, maxVal, -90, 90);
+  zAng = map(AcZ, minVal, maxVal, -90, 90);
 
   x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
   y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
