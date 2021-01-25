@@ -2,7 +2,7 @@
 #include <SPIFFS.h>
 #include <BluetoothSerial.h>
 #include <ELMduino.h>
-#include <Adafruit_MPU6050.h>
+#include <Wire.h>
 
 #define CONFIG_ASYNC_TCP_RUNNING_CORE 1
 #include <ESPAsyncWebServer.h>
@@ -205,7 +205,6 @@ void handle_client(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEven
   } else if (type == WS_EVT_DISCONNECT) {
 
     Serial.println("Client disconnected");
-
     free(target);
     target = NULL;
 
